@@ -134,6 +134,32 @@ def _server_entry() -> dict:
     return {"command": sys.executable, "args": ["-m", "hellyee.mcp_server"]}
 
 
+def skill_source() -> Path | None:
+    """SKILL.md: once kurulu pakette, sonra repo agacinda."""
+    packaged = Path(__file__).resolve().parent / "_skill" / "SKILL.md"
+    if packaged.exists():
+        return packaged
+    repo = (Path(__file__).resolve().parent.parent
+            / ".claude" / "skills" / "hellyee" / "SKILL.md")
+    return repo if repo.exists() else None
+
+
+def install_skill(project_dir: Path | None = None) -> Path | None:
+    """Claude'a araclarin nasil kullanilacagini ogreten skill'i kurar.
+
+    .mcp.json ile ayni yere, projeye ozel olarak yazilir.
+    """
+    source = skill_source()
+    if source is None:
+        _say("Skill", "kaynak bulunamadi, atlandi")
+        return None
+    target = (project_dir or Path.cwd()) / ".claude" / "skills" / "hellyee" / "SKILL.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, target)
+    _say("Skill kuruldu", str(target))
+    return target
+
+
 def configure_claude_code(project_dir: Path | None = None) -> Path:
     target = (project_dir or Path.cwd()) / ".mcp.json"
     config = {}
@@ -175,6 +201,7 @@ def run(client: str = "code", force: bool = False) -> int:
 
     if client in ("code", "both"):
         configure_claude_code()
+        install_skill()
     if client in ("desktop", "both"):
         configure_claude_desktop()
 

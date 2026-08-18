@@ -117,12 +117,13 @@ Once only. Live remembers it.
 
 ### 3. The skill
 
-The repo ships a skill at `.claude/skills/hellyee/` that teaches Claude how to
-drive these tools well — the ordering rules, the parameter conventions, the
-measurement method, and the handful of Live behaviours that fail silently.
-Claude Code picks it up automatically when you open this directory.
+`hellyee setup` also installs a skill into `.claude/skills/hellyee/` next to
+your `.mcp.json`. It teaches Claude how to drive these tools well — the ordering
+rules, the parameter conventions, the measurement method, and the handful of
+Live behaviours that fail silently with no error to follow.
 
-It is worth reading yourself: it is a condensed map of what goes wrong and why.
+Claude Code picks it up automatically. It is worth reading yourself: it is a
+condensed map of what goes wrong and why.
 
 ### 4. Check it
 
