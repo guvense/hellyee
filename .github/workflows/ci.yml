@@ -48,6 +48,23 @@ jobs:
       - name: CLI responds
         run: python -m hellyee --help
 
+      - name: Skill is present and well-formed
+        run: |
+          python - <<'PY'
+          import pathlib, re, sys
+          p = pathlib.Path(".claude/skills/hellyee/SKILL.md")
+          if not p.exists():
+              sys.exit("SKILL.md missing")
+          m = re.match(r"^---\n(.*?)\n---\n", p.read_text(), re.S)
+          if not m:
+              sys.exit("SKILL.md has no frontmatter")
+          front = m.group(1)
+          for key in ("name:", "description:"):
+              if key not in front:
+                  sys.exit(f"frontmatter missing {key}")
+          print("skill ok")
+          PY
+
   patch-compat:
     name: Remote scripts parse as Python 3.7
     runs-on: ubuntu-latest

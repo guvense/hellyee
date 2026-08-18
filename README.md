@@ -115,7 +115,16 @@ pip install "hellyee[audio]"
 
 Once only. Live remembers it.
 
-### 3. Check it
+### 3. The skill
+
+The repo ships a skill at `.claude/skills/hellyee/` that teaches Claude how to
+drive these tools well — the ordering rules, the parameter conventions, the
+measurement method, and the handful of Live behaviours that fail silently.
+Claude Code picks it up automatically when you open this directory.
+
+It is worth reading yourself: it is a condensed map of what goes wrong and why.
+
+### 4. Check it
 
 With Live open:
 
@@ -254,6 +263,8 @@ abletonosc_patch/
   setup_cli.py      installer: download, patch, configure Claude
 abletonosc_patch/
   → shipped inside the wheel as hellyee/_patch
+.claude/skills/hellyee/
+  SKILL.md          how to drive the tools; loaded by Claude Code
 ```
 
 Working on hellyee itself:
@@ -286,7 +297,7 @@ Issues and pull requests welcome. Useful directions:
 - Polyphonic audio-to-MIDI (`basic-pitch`)
 - Return tracks and sends
 - Windows testing (developed on macOS)
-- A skill layer with genre conventions and arrangement templates
+- Genre templates and arrangement patterns for the skill
 
 ## Credits
 
