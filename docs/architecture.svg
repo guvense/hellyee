@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 400" width="880" height="400" font-family="ui-sans-serif, -apple-system, Segoe UI, Roboto, sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#8b93a7"/>
+    </marker>
+    <marker id="arrowBack" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#5b8def"/>
+    </marker>
+  </defs>
+
+  <!-- Claude -->
+  <rect x="24" y="40" width="196" height="96" rx="10" fill="#8b5cf6" fill-opacity="0.12" stroke="#8b5cf6" stroke-width="1.5"/>
+  <text x="122" y="76" text-anchor="middle" font-size="16" font-weight="600" fill="#8b5cf6">Claude</text>
+  <text x="122" y="98" text-anchor="middle" font-size="12" fill="#8b93a7">Code · Desktop</text>
+  <text x="122" y="117" text-anchor="middle" font-size="11" fill="#8b93a7">launches the server</text>
+
+  <!-- hellyee -->
+  <rect x="300" y="28" width="220" height="120" rx="10" fill="#14b8a6" fill-opacity="0.12" stroke="#14b8a6" stroke-width="1.5"/>
+  <text x="410" y="60" text-anchor="middle" font-size="16" font-weight="600" fill="#14b8a6">hellyee</text>
+  <text x="410" y="82" text-anchor="middle" font-size="12" fill="#8b93a7">MCP server · 41 tools</text>
+  <text x="410" y="103" text-anchor="middle" font-size="11" fill="#8b93a7">tracks · clips · notes</text>
+  <text x="410" y="120" text-anchor="middle" font-size="11" fill="#8b93a7">devices · mixing · audio</text>
+  <text x="410" y="137" text-anchor="middle" font-size="11" fill="#8b93a7">music theory</text>
+
+  <!-- Live -->
+  <rect x="600" y="40" width="256" height="96" rx="10" fill="#f59e0b" fill-opacity="0.12" stroke="#f59e0b" stroke-width="1.5"/>
+  <text x="728" y="76" text-anchor="middle" font-size="16" font-weight="600" fill="#f59e0b">Ableton Live</text>
+  <text x="728" y="98" text-anchor="middle" font-size="12" fill="#8b93a7">11 or 12</text>
+  <text x="728" y="117" text-anchor="middle" font-size="11" fill="#8b93a7">AbletonOSC remote script</text>
+
+  <!-- arrows -->
+  <line x1="222" y1="76" x2="292" y2="76" stroke="#8b93a7" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="257" y="66" text-anchor="middle" font-size="10" fill="#8b93a7">stdio</text>
+  <text x="257" y="96" text-anchor="middle" font-size="10" fill="#8b93a7">JSON-RPC</text>
+
+  <line x1="522" y1="68" x2="592" y2="68" stroke="#8b93a7" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="557" y="58" text-anchor="middle" font-size="10" fill="#8b93a7">OSC :11000</text>
+  <line x1="592" y1="108" x2="522" y2="108" stroke="#5b8def" stroke-width="1.5" marker-end="url(#arrowBack)"/>
+  <text x="557" y="126" text-anchor="middle" font-size="10" fill="#5b8def">:11001 replies</text>
+
+  <!-- patch layer -->
+  <rect x="300" y="212" width="556" height="150" rx="10" fill="#8b93a7" fill-opacity="0.07" stroke="#8b93a7" stroke-width="1.2" stroke-dasharray="5 4"/>
+  <text x="322" y="240" font-size="13" font-weight="600" fill="#8b93a7">what hellyee adds to AbletonOSC</text>
+
+  <rect x="322" y="256" width="240" height="42" rx="7" fill="#5b8def" fill-opacity="0.12" stroke="#5b8def" stroke-width="1.2"/>
+  <text x="338" y="273" font-size="12" font-weight="600" fill="#5b8def">browser.py</text>
+  <text x="338" y="290" font-size="11" fill="#8b93a7">load instruments &amp; effects</text>
+
+  <rect x="590" y="256" width="244" height="42" rx="7" fill="#5b8def" fill-opacity="0.12" stroke="#5b8def" stroke-width="1.2"/>
+  <text x="606" y="273" font-size="12" font-weight="600" fill="#5b8def">master.py</text>
+  <text x="606" y="290" font-size="11" fill="#8b93a7">master chain + arrangement</text>
+
+  <rect x="322" y="308" width="512" height="40" rx="7" fill="#14b8a6" fill-opacity="0.10" stroke="#14b8a6" stroke-width="1.2"/>
+  <text x="338" y="333" font-size="11" fill="#8b93a7">
+    stock AbletonOSC exposes neither the browser, the master track, nor arrangement clips
+  </text>
+
+  <line x1="410" y1="150" x2="410" y2="204" stroke="#8b93a7" stroke-width="1.2" stroke-dasharray="3 3"/>
+  <line x1="728" y1="138" x2="728" y2="204" stroke="#8b93a7" stroke-width="1.2" stroke-dasharray="3 3"/>
+</svg>

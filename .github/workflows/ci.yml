@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install (core only)
+        run: pip install -e .
+
+      - name: Import check
+        run: python -c "from hellyee import core, music, osc, setup_cli; print('ok')"
+
+      - name: MCP server starts and registers tools
+        run: |
+          python -c "
+          import asyncio
+          from hellyee.mcp_server import server
+          tools = asyncio.run(server.list_tools())
+          assert len(tools) >= 40, f'only {len(tools)} tools'
+          print(f'{server.name}: {len(tools)} tools')
+          "
+
+      - name: Music theory
+        run: |
+          python -c "
+          from hellyee import music as m
+          assert m.note_to_midi('C3') == 60
+          assert m.spell(m.chord_pitches('F3','min7'), 'F', 'minor') == ['F3','Ab3','C4','Eb4']
+          assert m.quantize_notes([{'pitch':60,'start':0.27,'duration':0.3}])[0]['start'] == 0.25
+          print('ok')
+          "
+
+      - name: CLI responds
+        run: python -m hellyee --help
+
+  patch-compat:
+    name: Remote scripts parse as Python 3.7
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Live 11 gomulu Python 3.7 kullanir; walrus / list[str] / X | Y parse edilmez
+      - run: |
+          python - <<'PY'
+          import ast, pathlib, sys
+          bad = []
+          for f in pathlib.Path("abletonosc_patch").glob("*.py"):
+              try:
+                  ast.parse(f.read_text(), feature_version=(3, 7))
+                  print(f"ok   {f}")
+              except SyntaxError as e:
+                  bad.append(f"{f}: {e}")
+          if bad:
+              sys.exit("Python 3.7 uyumsuz:\n" + "\n".join(bad))
+          PY

@@ -1,0 +1,48 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hellyee"
+version = "0.1.0"
+description = "Make music in Ableton Live by talking to Claude"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "Güven Seçkin" }]
+keywords = ["ableton", "live", "mcp", "claude", "midi", "music", "osc"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Multimedia :: Sound/Audio :: MIDI",
+]
+
+# Cekirdek: 20 MB. Ses ozellikleri istege bagli (+380 MB).
+dependencies = [
+    "mcp>=2.0",
+    "python-osc>=1.9",
+]
+
+[project.optional-dependencies]
+audio = [
+    "librosa>=0.10",
+    "soundfile>=0.12",
+    "numpy>=1.26",
+    "faster-whisper>=1.0",
+    "sounddevice>=0.4",
+]
+
+[project.scripts]
+hellyee = "hellyee.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/guvense/hellyee"
+Issues = "https://github.com/guvense/hellyee/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["hellyee"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"abletonosc_patch" = "hellyee/_patch"

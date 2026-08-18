@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.DS_Store
+dist/
+build/
+
+# Makineye ozel mutlak yollar icerir; `hellyee setup` uretir
+.mcp.json

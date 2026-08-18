@@ -1,0 +1,6 @@
+# Cekirdek — MIDI kontrolu icin bu yeterli (~20 MB)
+mcp>=2.0
+python-osc>=1.9
+
+# Ses ozellikleri istege bagli (+380 MB, artik ayri):
+#   pip install -e ".[audio]"
