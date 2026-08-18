@@ -31,7 +31,7 @@ jobs:
           import asyncio
           from hellyee.mcp_server import server
           tools = asyncio.run(server.list_tools())
-          assert len(tools) >= 40, f'only {len(tools)} tools'
+          assert len(tools) >= 45, f'only {len(tools)} tools'
           print(f'{server.name}: {len(tools)} tools')
           "
 

@@ -151,6 +151,102 @@ class MasterHandler(AbletonOSCHandler):
             Live.Application.get_application().view.show_view("Arranger")
             return ("Arranger",)
 
+        # ---- automation ---------------------------------------------------
+        def _clip_at(track_index, arr_index):
+            track = self.song.tracks[int(track_index)]
+            clips = sorted(track.arrangement_clips, key=lambda c: c.start_time)
+            index = int(arr_index)
+            if not 0 <= index < len(clips):
+                raise ValueError("Arrangement klip indeksi araligin disinda")
+            return track, clips[index]
+
+        def _parameter(track_index, device_index, parameter_index):
+            track = self.song.tracks[int(track_index)]
+            device = track.devices[int(device_index)]
+            return device.parameters[int(parameter_index)]
+
+        def automate_session(params: Optional[Tuple] = ()) -> Tuple:
+            """params: track, clip_slot, device, parameter, t0,v0, t1,v1, ...
+
+            SESSION klibine otomasyon yazar. Live envelope'lari sadece session
+            kliplerinde olusturmaya izin verir; klip arrangement'a
+            kopyalandiginda otomasyon da beraberinde gider.
+            """
+            track_index, slot_index, device_index, parameter_index = params[:4]
+            points = params[4:]
+            if len(points) < 4 or len(points) % 2:
+                raise ValueError("En az iki (zaman, deger) cifti gerekir")
+
+            track = self.song.tracks[int(track_index)]
+            clip_slot = track.clip_slots[int(slot_index)]
+            if not clip_slot.has_clip:
+                raise ValueError("Slotta klip yok")
+            clip = clip_slot.clip
+            parameter = _parameter(track_index, device_index, parameter_index)
+            envelope = clip.automation_envelope(parameter)
+            if envelope is None:
+                envelope = clip.create_automation_envelope(parameter)
+
+            pairs = [(float(points[i]), float(points[i + 1]))
+                     for i in range(0, len(points), 2)]
+            STEP = 0.125
+            written = 0
+            for (t0, v0), (t1, v1) in zip(pairs, pairs[1:]):
+                span = max(0.0, t1 - t0)
+                steps = max(1, int(span / STEP))
+                for k in range(steps):
+                    frac = k / float(steps)
+                    envelope.insert_step(t0 + k * STEP, STEP, v0 + (v1 - v0) * frac)
+                    written += 1
+            envelope.insert_step(pairs[-1][0], STEP, pairs[-1][1])
+            return (track_index, slot_index, parameter.name, written + 1)
+
+        def automate(params: Optional[Tuple] = ()) -> Tuple:
+            """params: track, arr_clip_index, device, parameter, t0,v0, t1,v1, ...
+
+            Zaman degerleri klip BASLANGICINA gore vurus cinsindendir.
+            Ardisik noktalar arasi dogrusal interpolasyonla adimlanir.
+            """
+            track_index, arr_index, device_index, parameter_index = params[:4]
+            points = params[4:]
+            if len(points) < 4 or len(points) % 2:
+                raise ValueError("En az iki (zaman, deger) cifti gerekir")
+
+            _, clip = _clip_at(track_index, arr_index)
+            parameter = _parameter(track_index, device_index, parameter_index)
+            envelope = clip.automation_envelope(parameter)
+            if envelope is None:
+                envelope = clip.create_automation_envelope(parameter)
+
+            pairs = [(float(points[i]), float(points[i + 1]))
+                     for i in range(0, len(points), 2)]
+            #------------------------------------------------------------------
+            # insert_step sabit deger yazar; suzgec supurmesi icin ince adimlara
+            # bolup dogrusal interpolasyon uygularz.
+            #------------------------------------------------------------------
+            STEP = 0.125                      # 32'lik cozunurluk
+            written = 0
+            for (t0, v0), (t1, v1) in zip(pairs, pairs[1:]):
+                span = max(0.0, t1 - t0)
+                steps = max(1, int(span / STEP))
+                for k in range(steps):
+                    frac = k / float(steps)
+                    envelope.insert_step(t0 + k * STEP, STEP, v0 + (v1 - v0) * frac)
+                    written += 1
+            envelope.insert_step(pairs[-1][0], STEP, pairs[-1][1])
+            return (track_index, arr_index, parameter.name, written + 1)
+
+        def clear_automation(params: Optional[Tuple] = ()) -> Tuple:
+            """params: track, arr_clip_index, device, parameter"""
+            track_index, arr_index, device_index, parameter_index = params[:4]
+            _, clip = _clip_at(track_index, arr_index)
+            parameter = _parameter(track_index, device_index, parameter_index)
+            clip.clear_envelope(parameter)
+            return (track_index, arr_index, parameter.name)
+
+        add("/live/clip/automate", automate_session)
+        add("/live/arrangement/automate", automate)
+        add("/live/arrangement/clear_automation", clear_automation)
         add("/live/arrangement/duplicate_clip", arrangement_duplicate_clip)
         add("/live/arrangement/get/clips", arrangement_get_clips)
         add("/live/arrangement/delete_clip", arrangement_delete_clip)

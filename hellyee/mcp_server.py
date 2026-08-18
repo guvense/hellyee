@@ -493,6 +493,95 @@ def get_master_meter() -> str:
 
 
 # ==========================================================================
+# Arrangement — sarkiyi zaman cizgisinde kurmak
+# ==========================================================================
+@server.tool()
+def place_in_arrangement(track_index: int, clip_index: int, start_bar: float,
+                         repeats: int = 1) -> str:
+    """Bir session klibini arrangement zaman cizgisine kopyalar.
+
+    Sarki yapisi kurmanin yolu budur: once session'da yapi taslari olarak
+    klipler yaz, sonra bunlari bolum bolum arrangement'a yerlestir.
+    Klipteki otomasyon da beraberinde gider.
+
+    Args:
+        track_index: Kanal indeksi.
+        clip_index: Kaynak session slotu.
+        start_bar: Yerlesecegi bar (0'dan baslar). 4/4'te bar = 4 vurus.
+        repeats: Kac kez arka arkaya tekrarlansin. Klip uzunlugu kadar
+            araliklarla dizilir; 8 barlik bir klip repeats=4 ile 32 bar tutar.
+    """
+    return core.place_in_arrangement(osc(), track_index, clip_index,
+                                     start_bar * 4.0, repeats)
+
+
+@server.tool()
+def get_arrangement_clips(track_index: int) -> str:
+    """Bir kanalin arrangement kliplerini bar konumlariyla listeler.
+
+    Var olan bir sarkinin yapisini cikarmak icin kullan: hangi bolumde hangi
+    kanal caliyor, bosluklar nerede.
+    """
+    return _json(core.arrangement_clips(osc(), track_index))
+
+
+@server.tool()
+def clear_arrangement_track(track_index: int) -> str:
+    """Bir kanaldaki TUM arrangement kliplerini siler. Session klipleri kalir."""
+    return core.clear_arrangement_track(osc(), track_index)
+
+
+@server.tool()
+def delete_arrangement_clip(track_index: int, clip_index: int) -> str:
+    """Arrangement'taki tek bir klibi siler (get_arrangement_clips'teki index)."""
+    return core.delete_arrangement_clip(osc(), track_index, clip_index)
+
+
+@server.tool()
+def show_arrangement_view() -> str:
+    """Live'i Arrangement gorunumune gecirir."""
+    return core.show_arranger(osc())
+
+
+# ==========================================================================
+# Otomasyon — parametreleri zaman icinde hareket ettirmek
+# ==========================================================================
+@server.tool()
+def automate_clip(track_index: int, clip_index: int, device_index: int,
+                  parameter: str, points: list[dict]) -> str:
+    """Bir SESSION klibine parametre otomasyonu yazar (filtre supurmesi vb.).
+
+    Otomasyonu SESSION klibine yaz, sonra place_in_arrangement ile zaman
+    cizgisine kopyala — envelope beraberinde gider. Live envelope'lari
+    dogrudan arrangement kliplerinde olusturmaya izin vermez.
+
+    Ayni melodinin farkli filtre hallerini ayri slotlara yazip bolumlere gore
+    kullan: breakdown'da kisik, build'de acilan, drop'ta acik.
+
+    Args:
+        track_index: Kanal indeksi.
+        clip_index: Session slotu (otomasyon buraya yazilir).
+        device_index: list_track_devices'tan device sirasi.
+        parameter: Parametre adi ("Filter 1 Freq") veya indeksi.
+        points: [{"beat": 0, "percent": 30}, {"beat": 32, "percent": 95}]
+            beat klip BASLANGICINA gore vurus; percent 0-100 arasi
+            parametrenin kendi araligina oturur. Mutlak deger icin
+            "percent" yerine "value" kullan. Aradaki degerler dogrusal
+            interpolasyonla doldurulur.
+    """
+    return core.automate_clip(osc(), track_index, clip_index, device_index,
+                              parameter, points)
+
+
+@server.tool()
+def clear_clip_automation(track_index: int, clip_index: int,
+                          device_index: int, parameter: str) -> str:
+    """Bir klipteki parametre otomasyonunu siler."""
+    return core.clear_clip_automation(osc(), track_index, clip_index,
+                                      device_index, parameter)
+
+
+# ==========================================================================
 # Ses analizi
 # ==========================================================================
 @server.tool()

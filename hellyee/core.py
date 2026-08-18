@@ -418,3 +418,97 @@ def track_meter(osc: AbletonOSC, track_index: int) -> float:
 def load_master_device(osc: AbletonOSC, category: str, query: str) -> dict:
     """Master kanalina device yukler (mastering zinciri icin)."""
     return load_device(osc, MASTER, category, query)
+
+
+# --------------------------------------------------------------------------
+# arrangement - abletonosc_patch/master.py gerektirir
+# --------------------------------------------------------------------------
+def arrangement_clips(osc: AbletonOSC, track_index: int) -> list[dict]:
+    """Kanalin arrangement kliplerini baslangic sirasina gore dondurur."""
+    raw = _after(osc.query("/live/arrangement/get/clips", int(track_index)), 1)
+    clips = [{"name": raw[i], "start_beats": raw[i + 1], "length_beats": raw[i + 2]}
+             for i in range(0, len(raw) - 2, 3)]
+    clips.sort(key=lambda c: c["start_beats"])
+    for i, clip in enumerate(clips):
+        clip["index"] = i
+        clip["start_bar"] = round(clip["start_beats"] / 4, 3)
+        clip["length_bars"] = round(clip["length_beats"] / 4, 3)
+    return clips
+
+
+def place_in_arrangement(osc: AbletonOSC, track_index: int, clip_index: int,
+                         start_beats: float, repeats: int = 1,
+                         step_beats: float | None = None) -> str:
+    """Session klibini arrangement'a kopyalar; istenirse arka arkaya tekrarlar.
+
+    Klipteki otomasyon da beraberinde gider.
+    """
+    if step_beats is None:
+        step_beats = float(osc.query("/live/clip/get/length",
+                                     int(track_index), int(clip_index))[2])
+    for k in range(max(1, int(repeats))):
+        osc.query("/live/arrangement/duplicate_clip", int(track_index),
+                  int(clip_index), float(start_beats) + k * float(step_beats))
+    return (f"{repeats} klip yerlestirildi: kanal {track_index}, "
+            f"bar {start_beats / 4:g} itibariyle")
+
+
+def clear_arrangement_track(osc: AbletonOSC, track_index: int) -> str:
+    raw = osc.query("/live/arrangement/clear_track", int(track_index))
+    return f"Kanal {track_index}: {raw[1]} arrangement klibi silindi."
+
+
+def delete_arrangement_clip(osc: AbletonOSC, track_index: int,
+                            clip_index: int) -> str:
+    osc.query("/live/arrangement/delete_clip", int(track_index), int(clip_index))
+    return f"Kanal {track_index} arrangement klip {clip_index} silindi."
+
+
+def show_arranger(osc: AbletonOSC) -> str:
+    osc.query("/live/view/show_arranger")
+    return "Arrangement gorunumune gecildi."
+
+
+# --------------------------------------------------------------------------
+# otomasyon
+# --------------------------------------------------------------------------
+def automate_clip(osc: AbletonOSC, track_index: int, clip_index: int,
+                  device_index: int, parameter: int | str,
+                  points: list[dict]) -> str:
+    """Bir SESSION klibine parametre otomasyonu yazar.
+
+    Live envelope'lari yalnizca session kliplerinde olusturur; klip
+    arrangement'a kopyalandiginda otomasyon da beraberinde gider.
+
+    points: [{"beat": 0, "percent": 30}, {"beat": 32, "percent": 95}]
+    Noktalar arasi dogrusal interpolasyonla adimlanir.
+    """
+    if len(points) < 2:
+        raise ValueError("En az iki nokta gerekir.")
+    param = _resolve_parameter(osc, track_index, device_index, parameter)
+    lo, hi = param["min"], param["max"]
+
+    args: list = [int(track_index), int(clip_index), int(device_index),
+                  param["index"]]
+    for point in sorted(points, key=lambda p: float(p["beat"])):
+        if "percent" in point:
+            if lo is None or hi is None:
+                raise ValueError(f"'{param['name']}' icin min/max okunamadi; "
+                                 "percent yerine value kullan.")
+            pct = max(0.0, min(100.0, float(point["percent"])))
+            value = lo + (hi - lo) * (pct / 100.0)
+        else:
+            value = float(point["value"])
+        args += [float(point["beat"]), float(value)]
+
+    raw = osc.query("/live/clip/automate", *args, timeout=15.0)
+    return (f"'{param['name']}' otomasyonu yazildi "
+            f"({raw[3]} adim, kanal {track_index} slot {clip_index}).")
+
+
+def clear_clip_automation(osc: AbletonOSC, track_index: int, clip_index: int,
+                          device_index: int, parameter: int | str) -> str:
+    param = _resolve_parameter(osc, track_index, device_index, parameter)
+    osc.query("/live/arrangement/clear_automation", int(track_index),
+              int(clip_index), int(device_index), param["index"])
+    return f"'{param['name']}' otomasyonu silindi."

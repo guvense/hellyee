@@ -37,12 +37,13 @@ Claude →  creates the track · loads the instrument · writes 40 notes ·
 | **Sound design** | Full parameter access to every Live device — 93 parameters on Wavetable, all of EQ Eight, filters, envelopes. |
 | **Devices** | Search Live's browser and load any instrument, effect or preset onto any track. |
 | **Mixing** | Read real output meters and balance by measurement, not by guessing. |
-| **Arrangement** | Place clips on the timeline to build a full song structure. |
+| **Arrangement** | Read an existing song's structure, and place clips on the timeline to build your own. |
+| **Automation** | Write parameter envelopes — filter sweeps through a build, anything that moves over time. |
 | **Master bus** | Load and control devices on the master track. |
 | **Music theory** | 13 scales, 14 chord types, key-aware note spelling (F minor gives you `Ab`, not `G#`). |
 | **Audio in** | Turn a hummed melody into MIDI, or a spoken command into text. |
 
-41 tools in total. [Full reference below.](#tools)
+48 tools in total. [Full reference below.](#tools)
 
 ## How it works
 
@@ -141,6 +142,7 @@ Say what you want. Claude reads the set's state first, then acts.
 "this lead is harsh — round off the highs and slow the attack"
 "balance the mix, kick should sit on top"
 "arrange this into a full track: intro, build, drop, breakdown, drop, outro"
+"sweep the filter open across the last 8 bars before the drop"
 ```
 
 <!-- <p align="center"><img src="docs/demo-sound-design.gif" width="900" alt="Sound design"></p> -->
@@ -163,7 +165,7 @@ confirm what actually happened.
 ## Tools
 
 <details>
-<summary><b>All 41 tools</b></summary>
+<summary><b>All 48 tools</b></summary>
 
 | Group | Tools |
 |---|---|
@@ -177,6 +179,8 @@ confirm what actually happened.
 | Browser | `browser_categories` · `search_browser` · `load_device` · `load_device_by_uri` |
 | Mixing | `measure_track_level` · `get_master_meter` |
 | Master | `list_master_devices` · `list_master_device_parameters` · `set_master_parameter` · `load_master_device` |
+| Arrangement | `place_in_arrangement` · `get_arrangement_clips` · `clear_arrangement_track` · `delete_arrangement_clip` · `show_arrangement_view` |
+| Automation | `automate_clip` · `clear_clip_automation` |
 | Audio | `notes_from_audio` · `transcribe_audio` |
 
 </details>
@@ -220,6 +224,11 @@ measure sustained level, not transient peaks.
 **Quantize is client-side.** Notes are read, snapped in Python, written back.
 That is why `strength` exists — but it costs a round trip rather than being
 instant.
+
+**Automation must start in a session clip.** Live only creates envelopes on
+session clips, so hellyee writes automation there and carries it into the
+arrangement when the clip is placed. To vary automation across sections, write
+several clip variants and place the right one in each.
 
 **Session clips override the arrangement.** If a track has ever had a session
 clip fired, it ignores arrangement clips until Back to Arrangement is pressed.
@@ -275,7 +284,6 @@ live in one file.
 Issues and pull requests welcome. Useful directions:
 
 - Polyphonic audio-to-MIDI (`basic-pitch`)
-- Automation envelopes — Live exposes them, hellyee does not use them yet
 - Return tracks and sends
 - Windows testing (developed on macOS)
 - A skill layer with genre conventions and arrangement templates
