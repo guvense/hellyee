@@ -64,6 +64,11 @@ class BrowserHandler(AbletonOSCHandler):
         'Delay' aramasi 'Align Delay' yerine 'Delay'i bulmali.
         """
         base = self._base_name(name)
+        #----------------------------------------------------------------------
+        # Arama metnini de ayni sekilde normalize et: kullanici search'ten
+        # aldigi ismi ("Lit Kit.adg") dogrudan verebilmeli.
+        #----------------------------------------------------------------------
+        needle = self._base_name(needle)
         if not needle:
             return 3
         if base == needle:
