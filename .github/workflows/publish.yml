@@ -41,3 +41,7 @@ jobs:
           name: dist
           path: dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # Ayni surum zaten yuklendiyse hata verme; PyPI dosya adi
+          # yeniden kullanimina asla izin vermez, surum yukseltilmeli.
+          skip-existing: true
