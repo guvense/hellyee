@@ -588,7 +588,8 @@ def import_audio(osc: AbletonOSC, path: str, track_name: str = "",
     HELLYEE_SAMPLES.mkdir(parents=True, exist_ok=True)
     safe = re.sub(r"[^A-Za-z0-9._-]+", "_", src.name)
     dest = HELLYEE_SAMPLES / safe
-    _shutil.copy2(src, dest)
+    if src.resolve() != dest.resolve():
+        _shutil.copy2(src, dest)
 
     if track_index is None:
         name = track_name or src.stem

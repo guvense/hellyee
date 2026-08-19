@@ -53,7 +53,7 @@ Claude →  plays the drop · reads every track's meter · adjusts faders ·
 
 ## The skills
 
-The tools are half the story. `hellyee setup` also installs six skills —
+The tools are half the story. `hellyee setup` also installs seven skills —
 production knowledge Claude loads when the task calls for it:
 
 | Skill | What it teaches |
@@ -61,6 +61,7 @@ production knowledge Claude loads when the task calls for it:
 | **hellyee** | How to drive the tools: ordering rules, the percent convention, mixing by measurement, and the Live behaviours that fail silently with no error. |
 | **genre-blueprints** | Per-genre conventions with real numbers — tempo, drum grids, bassline patterns, sidechain amounts, kick/bass frequency separation, section lengths — for techno, house, trance, melodic techno, dnb, trap and ambient. |
 | **emotion-to-notes** | Turns a mood ("hüzünlü", "euphoric", "tense") into scale, contour, velocity and density decisions, then verifies the written notes actually match the intended emotion. |
+| **melody-craft** | Why generated melodies sound simple (the seven traps) and how to write ones that don't: motif development, tension notes, climax placement, question/answer phrasing — plus a feedback dictionary so "daha duygulu" or "çok yoğun" maps to concrete note edits instead of a regeneration. |
 | **arrangement-transitions** | Risers, gasps, fills and impacts — and which of them each genre actually uses. Carries the measured rule that a drop only hits if the moment before it is smaller. |
 | **mastering-targets** | Loudness per destination (Spotify −14 LUFS, Apple −16, club −6…−9) mapped to Live's meter scale, with section-contrast and kick-survival guardrails. |
 | **remix-and-reference** | Reference-channel workflow (import muted, A/B by solo, level-match before judging) and the remix pipeline: analyze → separate stems → import → rebuild in the target genre. |
@@ -140,7 +141,7 @@ Once only. Live remembers it.
 
 ### 3. The skills
 
-`hellyee setup` installs the five skills (see [The skills](#the-skills)) into
+`hellyee setup` installs the skills (see [The skills](#the-skills)) into
 `.claude/skills/` next to your `.mcp.json`; Claude Code picks them up
 automatically. Worth reading yourself — together they are a condensed map of
 how tracks actually get made, and what goes wrong.
