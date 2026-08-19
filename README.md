@@ -144,7 +144,7 @@ Once only. Live remembers it.
 
 ### 3. The skill
 
-`hellyee setup` installs three skills into `.claude/skills/` next to your
+`hellyee setup` installs five skills into `.claude/skills/` next to your
 `.mcp.json` — Claude Code picks them up automatically:
 
 - **hellyee** — how to drive the tools: ordering rules, parameter conventions,
@@ -156,6 +156,12 @@ Once only. Live remembers it.
 - **emotion-to-notes** — turns a mood ("hüzünlü", "euphoric", "gergin") into
   scale, contour, velocity and density decisions, then verifies the written
   notes actually match the intended emotion.
+- **arrangement-transitions** — risers, gasps, fills, impacts and which of
+  them each genre actually uses; the measured rule that a drop only hits if
+  the moment before it is smaller.
+- **mastering-targets** — loudness targets per destination (Spotify −14 LUFS,
+  Apple −16, club −6…−9) mapped to Live's meter scale, with the section-
+  contrast and kick-survival guardrails.
 
 Worth reading yourself — together they are a condensed map of how tracks
 actually get made, and what goes wrong.
