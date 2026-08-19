@@ -2,10 +2,14 @@
 
 # hellyee
 
-**Make music in Ableton Live by talking to Claude.**
+**Make music in Ableton Live by talking to Claude — it mixes and masters by
+actually reading the meters.**
 
-Create tracks, load instruments and effects, write MIDI, quantize, design sounds,
-balance the mix, and arrange a full song — from a conversation.
+Other AI↔Ableton bridges hand the model a set of tools. hellyee closes the
+loop: it measures real output levels, adjusts, and measures again — and it
+ships a skill that teaches Claude *how* to produce, not just what the tools do.
+Compose, sound-design, automate, arrange, mix and master a full track from a
+conversation.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-14b8a6.svg)](LICENSE)
 [![Live 11 · 12](https://img.shields.io/badge/Ableton%20Live-11%20%C2%B7%2012-f59e0b.svg)](https://www.ableton.com)
@@ -21,11 +25,12 @@ balance the mix, and arrange a full song — from a conversation.
 -->
 
 ```
-you  →  "add a MIDI track called Bass, put Wavetable on it,
-          write a rolling bassline in F minor, then close the filter a bit"
+you  →  "balance the mix — kick on top, then master it"
 
-Claude →  creates the track · loads the instrument · writes 40 notes ·
-          reads the filter's real range · sets cutoff · reports back "453 Hz"
+Claude →  plays the drop · reads every track's meter · adjusts faders ·
+          measures again until it converges · loads EQ → Glue → Limiter ·
+          drives the limiter by measurement · reports: "peak 0.835,
+          breakdown-to-drop dynamic 0.23 — the drop still hits"
 ```
 
 ## What it does
@@ -44,6 +49,28 @@ Claude →  creates the track · loads the instrument · writes 40 notes ·
 | **Audio in** | Turn a hummed melody into MIDI, or a spoken command into text. |
 
 48 tools in total. [Full reference below.](#tools)
+
+## How it compares
+
+Good alternatives exist — credit where due. What sets hellyee apart is the
+closed loop and the skill layer:
+
+| | hellyee | [ahujasid/ableton-mcp](https://github.com/ahujasid/ableton-mcp) | [jpoindexter/ableton-mcp](https://github.com/jpoindexter/ableton-mcp) |
+|---|:---:|:---:|:---:|
+| Tracks · clips · notes · browser loading | ✓ | ✓ | ✓ |
+| Building full songs in Arrangement View | ✓ | ✓ | — |
+| Parameter automation envelopes | ✓ | — | ✓ |
+| **Mixing by measurement** (meter → fader → converge) | ✓ | — | — |
+| **Mastering chain driven by measurement** | ✓ | — | — |
+| Quantize with strength (groove preserved) | ✓ | — | — |
+| Key-aware theory (F minor spells Ab, not G#) | ✓ | — | — |
+| Hum-to-MIDI · voice commands | ✓ | — | — |
+| **A skill teaching the AI how to produce** | ✓ | — | — |
+| REST API · multi-LLM · Max for Live | — | — | ✓ |
+
+If you want the most battle-tested option, ahujasid's is the most widely used.
+If you want the model to *finish* a track — automation, measured mix, mastered
+master bus — that is what hellyee is for.
 
 ## How it works
 
