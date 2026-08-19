@@ -50,27 +50,21 @@ Claude →  plays the drop · reads every track's meter · adjusts faders ·
 
 52 tools in total. [Full reference below.](#tools)
 
-## How it compares
+## The skills
 
-Good alternatives exist — credit where due. What sets hellyee apart is the
-closed loop and the skill layer:
+The tools are half the story. `hellyee setup` also installs five skills —
+production knowledge Claude loads when the task calls for it:
 
-| | hellyee | [ahujasid/ableton-mcp](https://github.com/ahujasid/ableton-mcp) | [jpoindexter/ableton-mcp](https://github.com/jpoindexter/ableton-mcp) |
-|---|:---:|:---:|:---:|
-| Tracks · clips · notes · browser loading | ✓ | ✓ | ✓ |
-| Building full songs in Arrangement View | ✓ | ✓ | — |
-| Parameter automation envelopes | ✓ | — | ✓ |
-| **Mixing by measurement** (meter → fader → converge) | ✓ | — | — |
-| **Mastering chain driven by measurement** | ✓ | — | — |
-| Quantize with strength (groove preserved) | ✓ | — | — |
-| Key-aware theory (F minor spells Ab, not G#) | ✓ | — | — |
-| Hum-to-MIDI · voice commands | ✓ | — | — |
-| **A skill teaching the AI how to produce** | ✓ | — | — |
-| REST API · multi-LLM · Max for Live | — | — | ✓ |
+| Skill | What it teaches |
+|---|---|
+| **hellyee** | How to drive the tools: ordering rules, the percent convention, mixing by measurement, and the Live behaviours that fail silently with no error. |
+| **genre-blueprints** | Per-genre conventions with real numbers — tempo, drum grids, bassline patterns, sidechain amounts, kick/bass frequency separation, section lengths — for techno, house, trance, melodic techno, dnb, trap and ambient. |
+| **emotion-to-notes** | Turns a mood ("hüzünlü", "euphoric", "tense") into scale, contour, velocity and density decisions, then verifies the written notes actually match the intended emotion. |
+| **arrangement-transitions** | Risers, gasps, fills and impacts — and which of them each genre actually uses. Carries the measured rule that a drop only hits if the moment before it is smaller. |
+| **mastering-targets** | Loudness per destination (Spotify −14 LUFS, Apple −16, club −6…−9) mapped to Live's meter scale, with section-contrast and kick-survival guardrails. |
 
-If you want the most battle-tested option, ahujasid's is the most widely used.
-If you want the model to *finish* a track — automation, measured mix, mastered
-master bus — that is what hellyee is for.
+Together they are why a one-line request ("make a techno track, master it for
+Spotify") comes out structured like the genre instead of generic MIDI.
 
 ## How it works
 
@@ -142,29 +136,12 @@ pip install "hellyee[audio]"
 
 Once only. Live remembers it.
 
-### 3. The skill
+### 3. The skills
 
-`hellyee setup` installs five skills into `.claude/skills/` next to your
-`.mcp.json` — Claude Code picks them up automatically:
-
-- **hellyee** — how to drive the tools: ordering rules, parameter conventions,
-  the measurement method, and the Live behaviours that fail silently.
-- **genre-blueprints** — per-genre production conventions (techno, house,
-  trance, melodic techno, dnb, trap, ambient): tempo, drum grids, bassline
-  patterns, sidechain amounts, kick/bass frequency separation, arrangement
-  section lengths.
-- **emotion-to-notes** — turns a mood ("hüzünlü", "euphoric", "gergin") into
-  scale, contour, velocity and density decisions, then verifies the written
-  notes actually match the intended emotion.
-- **arrangement-transitions** — risers, gasps, fills, impacts and which of
-  them each genre actually uses; the measured rule that a drop only hits if
-  the moment before it is smaller.
-- **mastering-targets** — loudness targets per destination (Spotify −14 LUFS,
-  Apple −16, club −6…−9) mapped to Live's meter scale, with the section-
-  contrast and kick-survival guardrails.
-
-Worth reading yourself — together they are a condensed map of how tracks
-actually get made, and what goes wrong.
+`hellyee setup` installs the five skills (see [The skills](#the-skills)) into
+`.claude/skills/` next to your `.mcp.json`; Claude Code picks them up
+automatically. Worth reading yourself — together they are a condensed map of
+how tracks actually get made, and what goes wrong.
 
 ### 4. Check it
 
