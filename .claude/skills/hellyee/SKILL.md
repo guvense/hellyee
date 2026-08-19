@@ -24,7 +24,7 @@ a second kick over someone's track is the most confusing failure mode there is.
 If the set already has material, match its tempo and key rather than imposing
 your own. Sample filenames often carry both (`..._150bpm...`, `..._Fm`).
 
-## The five things that will silently break
+## The seven things that will silently break
 
 **1. `back_to_arranger` — arrangement plays with no sound.** If a session clip
 was ever fired on a track, that track ignores its arrangement clips forever
@@ -51,6 +51,19 @@ hand through Live's Configure button. Do sound design on Live's own devices —
 Wavetable exposes 93 parameters, Operator and EQ Eight likewise. If the user
 asks for a specific plugin, load it, tell them it is a black box to you, and
 offer the Configure route.
+
+**6. Arrangement clips are frozen copies.** `place_in_arrangement` duplicates
+the session clip *as it is at that moment*. Editing the session clip's notes or
+automation afterwards does NOT update the copies already in the arrangement —
+the user keeps hearing the old version with no error anywhere. After any
+session-clip edit, clear and re-place that track's arrangement clips.
+
+**7. Track indices go stale the moment the user touches the set.** The user
+deleting or adding one track in the GUI shifts every index below it; your
+cached map then silently addresses the wrong tracks (or errors with "Index out
+of range" mid-script). Re-query track names and rebuild the map at the start
+of every work session, and whenever any track-level call surprises you —
+never trust a map cached before user interaction.
 
 ## Sound design: percent, and the muffling trap
 
