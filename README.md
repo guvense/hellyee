@@ -49,7 +49,7 @@ Claude →  plays the drop · reads every track's meter · adjusts faders ·
 | **Audio in** | Turn a hummed melody into MIDI, or a spoken command into text. |
 | **Remix & reference** | Analyze any song (key, tempo, band energies), separate its stems with demucs, and import audio onto tracks — reference channels and full remix flows. |
 
-55 tools in total. [Full reference below.](#tools)
+58 tools in total. [Full reference below.](#tools)
 
 ## The skills
 
@@ -196,7 +196,7 @@ confirm what actually happened.
 ## Tools
 
 <details>
-<summary><b>All 55 tools</b></summary>
+<summary><b>All 58 tools</b></summary>
 
 | Group | Tools |
 |---|---|
@@ -204,11 +204,11 @@ confirm what actually happened.
 | Song | `get_song_status` · `set_tempo` · `transport` · `create_scene` · `fire_scene` |
 | Tracks | `create_track` · `rename_track` · `delete_track` · `duplicate_track` · `set_mixer` |
 | Clips | `create_clip` · `delete_clip` · `fire_clip` · `stop_clip` · `set_clip_properties` |
-| Notes | `get_clip_notes` · `add_notes` · `replace_clip_notes` · `clear_clip_notes` · `quantize_clip` |
+| Notes | `get_clip_notes` · `add_notes` · `replace_clip_notes` · `clear_clip_notes` · `quantize_clip` · `apply_groove` |
 | Theory | `get_scale_notes` · `get_chord_notes` · `snap_notes_to_scale` · `get_drum_map` |
 | Devices | `list_track_devices` · `list_device_parameters` · `set_device_parameter` · `delete_device` |
 | Browser | `browser_categories` · `search_browser` · `load_device` · `load_device_by_uri` |
-| Mixing | `measure_track_level` · `get_master_meter` |
+| Mixing | `measure_track_level` · `get_master_meter` · `record_master` · `compare_audio_files` |
 | Sends | `list_return_tracks` · `get_track_sends` · `set_track_send` · `set_return_volume` |
 | Master | `list_master_devices` · `list_master_device_parameters` · `set_master_parameter` · `load_master_device` |
 | Arrangement | `place_in_arrangement` · `get_arrangement_clips` · `clear_arrangement_track` · `delete_arrangement_clip` · `show_arrangement_view` |

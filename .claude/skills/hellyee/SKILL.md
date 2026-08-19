@@ -65,6 +65,43 @@ of range" mid-script). Re-query track names and rebuild the map at the start
 of every work session, and whenever any track-level call surprises you —
 never trust a map cached before user interaction.
 
+## Sound design: presets first, then shape
+
+**Do not build every sound from an init patch.** Live ships thousands of
+professionally designed instrument racks and presets — layered, processed,
+refined for years. A raw Wavetable patch you dial in blind will sound thin
+next to them. The workflow that produces quality:
+
+1. `search_browser` in the **sounds** category with the *role* as the query
+   ("Pad", "Pluck", "Bass", "Lead", "Keys") plus a character word from the
+   brief ("Dark Pad", "Glass Pluck") — these match Live's own preset naming.
+2. Load the best candidate and *listen/measure* before touching anything.
+3. Shape it with its **macros** (racks expose 8+ named macro parameters —
+   they are the designer's intended handles) and with inserts (EQ, delay),
+   not by rebuilding the synthesis.
+4. Drop to an init Wavetable/Operator patch only when no preset is close, or
+   when the user explicitly wants bespoke sound design — and say so.
+
+Filter/cutoff floors below still apply to presets: a great preset muffled to
+400 Hz is still mud.
+
+## Mixing with your ears: the record → analyze loop
+
+You cannot hear — but Live can record what the user hears. `record_master`
+captures the master output (Resampling) while the arrangement plays and
+returns a wav path plus band analysis; `compare_audio_files` diffs it against
+a reference track, level-matched, in dB per band.
+
+- Before judging or "fixing" a mix, record the loudest section and read the
+  band distribution — do not EQ from imagination.
+- After a chain of mix changes, record again and diff against the previous
+  recording: numbers moving the wrong way beat opinions.
+- When the user provides a reference track, `compare_audio_files` output is
+  the mixing to-do list ("lowmid +4 dB fazla → kis").
+- MIDI that measures right but feels stiff: `apply_groove` (swing for
+  drums/percs, small timing/velocity jitter for melodic parts, same seed =
+  reproducible). Never apply twice to the same clip — jitter accumulates.
+
 ## Sound design: percent, and the muffling trap
 
 **Always set parameters with `percent`, never raw values.** Live's internal

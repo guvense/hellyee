@@ -620,3 +620,88 @@ def import_audio(osc: AbletonOSC, path: str, track_name: str = "",
     return {"track_index": int(track_index), "slot": int(slot),
             "file": str(dest), "length_beats": round(length, 1),
             "length_bars": round(length / 4, 1)}
+
+
+def record_master(osc: AbletonOSC, start_bar: float, bars: float = 8,
+                  track_name: str = "REC") -> dict:
+    """Aranjman calarken master ciktisini Resampling ile kaydeder.
+
+    Kayit kanalinin monitoru kapatilir (feedback engeli) ve kanal mute'lanir;
+    Resampling girisi mute/monitor'den etkilenmez. Kayit, global kuantizasyon
+    yuzunden bir sonraki bar sinirinda baslar — start_bar'i buna gore ver.
+    Donen dosya yolu analyze_file / compare_files'a verilebilir.
+    """
+    import time as _time
+
+    status = song_status(osc)
+    tempo = float(status["tempo"])
+    rec = None
+    for t in status["tracks"]:
+        if t["name"] == track_name and t["type"] == "audio":
+            rec = t["index"]
+            break
+    if rec is None:
+        rec = create_track(osc, "audio", -1, track_name)["index"]
+
+    osc.send("/live/track/set/input_routing_type", int(rec), "Resampling")
+    osc.send("/live/track/set/current_monitoring_state", int(rec), 2)  # Off
+    osc.send("/live/track/set/mute", int(rec), 1)
+    osc.send("/live/track/set/arm", int(rec), 1)
+    _time.sleep(0.3)
+    if osc.query("/live/clip_slot/get/has_clip", int(rec), 0)[2]:
+        delete_clip(osc, rec, 0)
+        _time.sleep(0.3)
+
+    osc.send("/live/song/set/back_to_arranger", 0)
+    osc.send("/live/song/start_playing")
+    _time.sleep(0.3)
+    osc.send("/live/song/set/current_song_time", float(start_bar) * 4.0)
+    _time.sleep(0.2)
+    osc.send("/live/clip_slot/fire", int(rec), 0)   # armed bos slot -> kayit
+    _time.sleep((float(bars) * 4.0 + 4.0) * 60.0 / tempo + 1.0)
+    stop_clip(osc, rec, 0)
+    _time.sleep(1.0)
+    osc.send("/live/song/stop_playing")
+    osc.send("/live/track/set/arm", int(rec), 0)
+
+    if not osc.query("/live/clip_slot/get/has_clip", int(rec), 0)[2]:
+        raise AbletonOSCError(
+            "Kayit klibi olusmadi. Kanal arm edilebiliyor mu ve global "
+            "kuantizasyon makul mu (1 bar) kontrol et.")
+    path = osc.query("/live/clip/get/file_path", int(rec), 0)[2]
+    length = float(osc.query("/live/clip/get/length", int(rec), 0)[2])
+    return {"file": str(path), "track_index": int(rec),
+            "length_beats": round(length, 1), "start_bar": float(start_bar)}
+
+
+def apply_groove(osc: AbletonOSC, track_index: int, clip_index: int,
+                 swing: float = 0.0, timing_jitter: float = 0.0,
+                 velocity_jitter: int = 0, seed: int | None = None) -> dict:
+    """Klipteki notalara insani his katar.
+
+    swing 0..1: her ikinci 16'lik gec calar (1.0 = tam triplet hissi).
+    timing_jitter: her notaya +-beat cinsinden rastgele mikro kayma (0.02 tipik).
+    velocity_jitter: +-velocity dalgalanmasi (8 tipik).
+    Ayni seed ayni sonucu verir; notalar yerinde degistirilir.
+    """
+    import random as _random
+
+    rng = _random.Random(seed)
+    notes = get_notes(osc, track_index, clip_index)
+    if not notes:
+        return {"changed": 0, "note": "klip bos"}
+    for n in notes:
+        pos16 = n["start"] / 0.25
+        idx = round(pos16)
+        if swing > 0 and abs(pos16 - idx) < 0.05 and idx % 2 == 1:
+            n["start"] += (1.0 / 6.0) * float(swing)   # 16'lik swing
+        if timing_jitter > 0:
+            n["start"] += rng.uniform(-timing_jitter, timing_jitter)
+        if velocity_jitter > 0:
+            n["velocity"] = int(n["velocity"]) + rng.randint(-velocity_jitter,
+                                                             velocity_jitter)
+        n["start"] = max(0.0, float(n["start"]))
+        n["velocity"] = max(1, min(127, int(n["velocity"])))
+    replace_notes(osc, track_index, clip_index, notes)
+    return {"changed": len(notes), "swing": swing,
+            "timing_jitter": timing_jitter, "velocity_jitter": velocity_jitter}

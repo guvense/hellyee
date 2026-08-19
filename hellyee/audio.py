@@ -189,6 +189,41 @@ def analyze_file(path: str) -> dict:
             "band_energy_pct": band_pct}
 
 
+def compare_files(mix_path: str, ref_path: str) -> dict:
+    """Mix'i referans parcayla bant bant kiyaslar.
+
+    Bant paylari toplam enerjinin yuzdesi oldugundan kiyas dogal olarak
+    seviye-esitlenmistir: delta, "referans gibi tinlamasi icin hangi bolge
+    kac dB oynamali" demektir. level_delta_db ise mutlak seviye farkidir.
+    """
+    import math
+
+    a = analyze_file(mix_path)
+    b = analyze_file(ref_path)
+    deltas = {}
+    for k in a["band_energy_pct"]:
+        ma = max(a["band_energy_pct"][k], 0.01)
+        mb = max(b["band_energy_pct"].get(k, 0.01), 0.01)
+        deltas[k] = round(10 * math.log10(ma / mb), 1)
+    level = round(20 * math.log10(max(a["rms"], 1e-6) / max(b["rms"], 1e-6)), 1)
+    verdict = []
+    for k, d in deltas.items():
+        if d >= 2:
+            verdict.append(f"{k}: mix'te {d:+.1f} dB fazla — bu bolgeyi kis")
+        elif d <= -2:
+            verdict.append(f"{k}: mix'te {d:+.1f} dB eksik — bu bolgeyi ac")
+    if not verdict:
+        verdict = ["bant dagilimi referansla uyumlu (+-2 dB icinde)"]
+    if a["crest_ratio"] > b["crest_ratio"] * 1.6:
+        verdict.append("mix referanstan cok daha az kompresli (crest yuksek)")
+    elif b["crest_ratio"] > a["crest_ratio"] * 1.6:
+        verdict.append("mix referanstan cok daha fazla kompresli (crest dusuk)")
+    return {"band_delta_db": deltas, "level_delta_db": level,
+            "verdict": verdict,
+            "mix": {k: a[k] for k in ("rms", "peak", "crest_ratio", "band_energy_pct")},
+            "ref": {k: b[k] for k in ("rms", "peak", "crest_ratio", "band_energy_pct")}}
+
+
 # --------------------------------------------------------------------------
 # 4) Stem ayirma — demucs (istege bagli bagimlilik)
 # --------------------------------------------------------------------------

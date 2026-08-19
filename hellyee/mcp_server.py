@@ -638,6 +638,53 @@ def analyze_audio_file(path: str) -> str:
 
 
 @server.tool()
+def record_master(start_bar: float, bars: float = 8, analyze: bool = True) -> str:
+    """Aranjmani calarken master ciktisini kaydeder (Resampling) ve analiz eder.
+
+    Kulak dongusu: mix/mastering karari vermeden once ilgili bolumu kaydet,
+    bant dagilimina bak, ondan sonra EQ/seviye oyna. "REC" adli bir audio
+    kanal olusturur/kullanir (mute'lu, monitoru kapali — sese karismaz).
+    Kayit bir sonraki bar sinirinda basladigi icin start_bar'dan 1 bar once
+    baslamak isteyebilirsin. Bloklar: bars*4 beat + pay kadar surer.
+    Donen dosya yolu compare_audio_files'a da verilebilir.
+    """
+    info = core.record_master(osc(), start_bar, bars)
+    if analyze:
+        from .audio import analyze_file
+        info["analysis"] = analyze_file(info["file"])
+    return _json(info)
+
+
+@server.tool()
+def compare_audio_files(mix_path: str, ref_path: str) -> str:
+    """Mix'i referans parcayla bant bant kiyaslar; sonuc dogal olarak
+    seviye-esitlenmistir (bant paylari yuzde).
+
+    band_delta_db pozitifse mix'te o bolge referanstan fazla demektir.
+    verdict alani dogrudan aksiyon soyler ("lowmid'i kis" gibi). Mix tarafi
+    icin record_master ciktisini, referans icin kullanicinin verdigi dosyayi
+    kullan. +-2 dB icindeki farklari dert etme.
+    """
+    from .audio import compare_files
+    return _json(compare_files(mix_path, ref_path))
+
+
+@server.tool()
+def apply_groove(track_index: int, clip_index: int, swing: float = 0.0,
+                 timing_jitter: float = 0.0, velocity_jitter: int = 0,
+                 seed: int | None = None) -> str:
+    """Klipteki notalara insani his katar: 16'lik swing (0..1), mikro zaman
+    kaymasi (beat, 0.02 tipik) ve velocity dalgalanmasi (+-8 tipik).
+
+    Grid'e kilitli, mekanik duyulan MIDI'nin ilaci. Ayni seed ayni sonucu
+    verir; iki kez ust uste uygulama — jitter birikir. Davul/perc icin swing,
+    melodik klipler icin dusuk jitter degerleri yeterli.
+    """
+    return _json(core.apply_groove(osc(), track_index, clip_index, swing,
+                                   timing_jitter, velocity_jitter, seed))
+
+
+@server.tool()
 def separate_stems(path: str, two_stems: bool = False) -> str:
     """Bir sarkiyi stemlere ayirir (demucs): vocals + drums + bass + other,
     veya two_stems=True ile vocals + no_vocals.
