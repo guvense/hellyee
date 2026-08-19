@@ -36,7 +36,7 @@ jobs:
           import asyncio
           from hellyee.mcp_server import server
           tools = asyncio.run(server.list_tools())
-          assert len(tools) >= 45, f'only {len(tools)} tools'
+          assert len(tools) >= 50, f'only {len(tools)} tools'
           print(f'{server.name}: {len(tools)} tools')
           "
 
@@ -57,17 +57,17 @@ jobs:
         run: |
           python - <<'PY'
           import pathlib, re, sys
-          p = pathlib.Path(".claude/skills/hellyee/SKILL.md")
-          if not p.exists():
-              sys.exit("SKILL.md missing")
-          m = re.match(r"^---\n(.*?)\n---\n", p.read_text(), re.S)
-          if not m:
-              sys.exit("SKILL.md has no frontmatter")
-          front = m.group(1)
-          for key in ("name:", "description:"):
-              if key not in front:
-                  sys.exit(f"frontmatter missing {key}")
-          print("skill ok")
+          skills = sorted(pathlib.Path(".claude/skills").glob("*/SKILL.md"))
+          if len(skills) < 3:
+              sys.exit(f"expected >=3 skills, found {len(skills)}")
+          for p in skills:
+              m = re.match(r"^---\n(.*?)\n---\n", p.read_text(), re.S)
+              if not m:
+                  sys.exit(f"{p}: no frontmatter")
+              for key in ("name:", "description:"):
+                  if key not in m.group(1):
+                      sys.exit(f"{p}: frontmatter missing {key}")
+              print(f"ok  {p.parent.name}")
           PY
 
   patch-compat:

@@ -247,6 +247,26 @@ class MasterHandler(AbletonOSCHandler):
         add("/live/clip/automate", automate_session)
         add("/live/arrangement/automate", automate)
         add("/live/arrangement/clear_automation", clear_automation)
+        # ---- return kanallari -------------------------------------------
+        def returns_get_names(params: Optional[Tuple] = ()) -> Tuple:
+            return tuple(t.name for t in self.song.return_tracks)
+
+        def returns_get_volume(params: Optional[Tuple] = ()) -> Tuple:
+            index = int(params[0])
+            return (index, self.song.return_tracks[index].mixer_device.volume.value)
+
+        def returns_set_volume(params: Optional[Tuple] = ()) -> None:
+            self.song.return_tracks[int(params[0])].mixer_device.volume.value = float(params[1])
+
+        def returns_get_meter(params: Optional[Tuple] = ()) -> Tuple:
+            index = int(params[0])
+            return (index, self.song.return_tracks[index].output_meter_level)
+
+        add("/live/returns/get/names", returns_get_names)
+        add("/live/returns/get/volume", returns_get_volume)
+        add("/live/returns/set/volume", returns_set_volume)
+        add("/live/returns/get/output_meter", returns_get_meter)
+
         add("/live/arrangement/duplicate_clip", arrangement_duplicate_clip)
         add("/live/arrangement/get/clips", arrangement_get_clips)
         add("/live/arrangement/delete_clip", arrangement_delete_clip)

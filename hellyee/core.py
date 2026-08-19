@@ -512,3 +512,51 @@ def clear_clip_automation(osc: AbletonOSC, track_index: int, clip_index: int,
     osc.query("/live/arrangement/clear_automation", int(track_index),
               int(clip_index), int(device_index), param["index"])
     return f"'{param['name']}' otomasyonu silindi."
+
+
+# --------------------------------------------------------------------------
+# send / return kanallari - abletonosc_patch/master.py gerektirir
+# --------------------------------------------------------------------------
+def _send_index(send: int | str) -> int:
+    if isinstance(send, str) and send.strip().isalpha():
+        return ord(send.strip().upper()) - ord("A")
+    return int(send)
+
+
+def list_return_tracks(osc: AbletonOSC) -> list[dict]:
+    names = list(osc.query("/live/returns/get/names"))
+    out = []
+    for i, name in enumerate(names):
+        vol = _after(osc.query("/live/returns/get/volume", i), 1)[0]
+        out.append({"index": i, "letter": chr(ord("A") + i), "name": name,
+                    "volume": vol})
+    return out
+
+
+def get_track_sends(osc: AbletonOSC, track_index: int) -> list[dict]:
+    returns = list_return_tracks(osc)
+    out = []
+    for r in returns:
+        level = _after(osc.query("/live/track/get/send", int(track_index),
+                                 r["index"]), 2)[0]
+        out.append({"send": r["letter"], "return_name": r["name"],
+                    "level": level})
+    return out
+
+
+def set_track_send(osc: AbletonOSC, track_index: int, send: int | str,
+                   level: float) -> str:
+    idx = _send_index(send)
+    osc.send("/live/track/set/send", int(track_index), idx, float(level))
+    return (f"Kanal {track_index} send {chr(ord('A') + idx)} = {level:.3f} "
+            "(0.85 = 0 dB)")
+
+
+def set_return_volume(osc: AbletonOSC, return_index: int, level: float) -> str:
+    osc.send("/live/returns/set/volume", int(return_index), float(level))
+    return f"Return {chr(ord('A') + int(return_index))} volume = {level:.3f}"
+
+
+def return_meter(osc: AbletonOSC, return_index: int) -> float:
+    return float(_after(osc.query("/live/returns/get/output_meter",
+                                  int(return_index)), 1)[0])

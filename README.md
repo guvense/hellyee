@@ -48,7 +48,7 @@ Claude →  plays the drop · reads every track's meter · adjusts faders ·
 | **Music theory** | 13 scales, 14 chord types, key-aware note spelling (F minor gives you `Ab`, not `G#`). |
 | **Audio in** | Turn a hummed melody into MIDI, or a spoken command into text. |
 
-48 tools in total. [Full reference below.](#tools)
+52 tools in total. [Full reference below.](#tools)
 
 ## How it compares
 
@@ -144,13 +144,21 @@ Once only. Live remembers it.
 
 ### 3. The skill
 
-`hellyee setup` also installs a skill into `.claude/skills/hellyee/` next to
-your `.mcp.json`. It teaches Claude how to drive these tools well — the ordering
-rules, the parameter conventions, the measurement method, and the handful of
-Live behaviours that fail silently with no error to follow.
+`hellyee setup` installs three skills into `.claude/skills/` next to your
+`.mcp.json` — Claude Code picks them up automatically:
 
-Claude Code picks it up automatically. It is worth reading yourself: it is a
-condensed map of what goes wrong and why.
+- **hellyee** — how to drive the tools: ordering rules, parameter conventions,
+  the measurement method, and the Live behaviours that fail silently.
+- **genre-blueprints** — per-genre production conventions (techno, house,
+  trance, melodic techno, dnb, trap, ambient): tempo, drum grids, bassline
+  patterns, sidechain amounts, kick/bass frequency separation, arrangement
+  section lengths.
+- **emotion-to-notes** — turns a mood ("hüzünlü", "euphoric", "gergin") into
+  scale, contour, velocity and density decisions, then verifies the written
+  notes actually match the intended emotion.
+
+Worth reading yourself — together they are a condensed map of how tracks
+actually get made, and what goes wrong.
 
 ### 4. Check it
 
@@ -202,7 +210,7 @@ confirm what actually happened.
 ## Tools
 
 <details>
-<summary><b>All 48 tools</b></summary>
+<summary><b>All 52 tools</b></summary>
 
 | Group | Tools |
 |---|---|
@@ -215,6 +223,7 @@ confirm what actually happened.
 | Devices | `list_track_devices` · `list_device_parameters` · `set_device_parameter` · `delete_device` |
 | Browser | `browser_categories` · `search_browser` · `load_device` · `load_device_by_uri` |
 | Mixing | `measure_track_level` · `get_master_meter` |
+| Sends | `list_return_tracks` · `get_track_sends` · `set_track_send` · `set_return_volume` |
 | Master | `list_master_devices` · `list_master_device_parameters` · `set_master_parameter` · `load_master_device` |
 | Arrangement | `place_in_arrangement` · `get_arrangement_clips` · `clear_arrangement_track` · `delete_arrangement_clip` · `show_arrangement_view` |
 | Automation | `automate_clip` · `clear_clip_automation` |
@@ -323,7 +332,6 @@ live in one file.
 Issues and pull requests welcome. Useful directions:
 
 - Polyphonic audio-to-MIDI (`basic-pitch`)
-- Return tracks and sends
 - Windows testing (developed on macOS)
 - Genre templates and arrangement patterns for the skill
 

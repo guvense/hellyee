@@ -582,6 +582,47 @@ def clear_clip_automation(track_index: int, clip_index: int,
 
 
 # ==========================================================================
+# Send / Return kanallari (reverb-delay bus mixing)
+# ==========================================================================
+@server.tool()
+def list_return_tracks() -> str:
+    """Return kanallarini listeler (A-Reverb, B-Delay gibi) — isim, harf, seviye.
+
+    Send ayarlamadan once cagir; kac return oldugunu ve neye gittigini gorursun.
+    """
+    return _json(core.list_return_tracks(osc()))
+
+
+@server.tool()
+def get_track_sends(track_index: int) -> str:
+    """Bir kanalin send seviyelerini dondurur (hangi return'e ne kadar gidiyor)."""
+    return _json(core.get_track_sends(osc(), track_index))
+
+
+@server.tool()
+def set_track_send(track_index: int, send: str, level: float) -> str:
+    """Bir kanalin send seviyesini ayarlar — reverb/delay bus'ina gonderim.
+
+    Insert reverb yerine send kullanmak, ayni reverb'u birden cok kanala
+    paylastirir ve daha temiz miks verir. Olcumle calis: send'i ac,
+    measure_track_level ile return'un doldugunu dogrula.
+
+    Args:
+        track_index: Kaynak kanal.
+        send: Return harfi ("A", "B") veya indeksi.
+        level: 0.0-1.0 arasi; 0.85 = 0 dB, tipik send 0.3-0.6.
+    """
+    param: int | str = send if send.strip().isalpha() else int(send)
+    return core.set_track_send(osc(), track_index, param, level)
+
+
+@server.tool()
+def set_return_volume(return_index: int, level: float) -> str:
+    """Bir return kanalinin ana seviyesini ayarlar (0.85 = 0 dB)."""
+    return core.set_return_volume(osc(), return_index, level)
+
+
+# ==========================================================================
 # Ses analizi
 # ==========================================================================
 @server.tool()

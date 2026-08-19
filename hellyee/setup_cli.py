@@ -134,30 +134,37 @@ def _server_entry() -> dict:
     return {"command": sys.executable, "args": ["-m", "hellyee.mcp_server"]}
 
 
-def skill_source() -> Path | None:
-    """SKILL.md: once kurulu pakette, sonra repo agacinda."""
-    packaged = Path(__file__).resolve().parent / "_skill" / "SKILL.md"
-    if packaged.exists():
+def skill_root() -> Path | None:
+    """Skill dizini: once kurulu pakette, sonra repo agacinda."""
+    packaged = Path(__file__).resolve().parent / "_skill"
+    if any(packaged.glob("*/SKILL.md")):
         return packaged
-    repo = (Path(__file__).resolve().parent.parent
-            / ".claude" / "skills" / "hellyee" / "SKILL.md")
-    return repo if repo.exists() else None
+    repo = Path(__file__).resolve().parent.parent / ".claude" / "skills"
+    return repo if any(repo.glob("*/SKILL.md")) else None
 
 
-def install_skill(project_dir: Path | None = None) -> Path | None:
-    """Claude'a araclarin nasil kullanilacagini ogreten skill'i kurar.
+def install_skill(project_dir: Path | None = None) -> list[Path]:
+    """Claude'a uretim bilgisini ogreten skill'leri projeye kurar.
 
-    .mcp.json ile ayni yere, projeye ozel olarak yazilir.
+    hellyee (arac kullanimi), genre-blueprints (tur kaliplari) ve
+    emotion-to-notes (duygu -> nota cevirisi) .mcp.json'un yanina yazilir.
     """
-    source = skill_source()
+    source = skill_root()
     if source is None:
-        _say("Skill", "kaynak bulunamadi, atlandi")
-        return None
-    target = (project_dir or Path.cwd()) / ".claude" / "skills" / "hellyee" / "SKILL.md"
-    target.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(source, target)
-    _say("Skill kuruldu", str(target))
-    return target
+        _say("Skill'ler", "kaynak bulunamadi, atlandi")
+        return []
+    target_root = (project_dir or Path.cwd()) / ".claude" / "skills"
+    installed = []
+    for skill_md in sorted(source.glob("*/SKILL.md")):
+        name = skill_md.parent.name
+        target = target_root / name
+        if skill_md.parent.resolve() == target.resolve():
+            continue                      # repo icinden calisiyoruz; zaten yerinde
+        shutil.copytree(skill_md.parent, target, dirs_exist_ok=True)
+        installed.append(target)
+    _say("Skill'ler kuruldu" if installed else "Skill'ler",
+         f"{len(installed)} adet -> {target_root}" if installed else "zaten yerinde")
+    return installed
 
 
 def configure_claude_code(project_dir: Path | None = None) -> Path:
