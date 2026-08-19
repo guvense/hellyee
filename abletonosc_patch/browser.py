@@ -230,5 +230,22 @@ class BrowserHandler(AbletonOSCHandler):
         self.osc_server.add_handler("/live/browser/get/categories", get_categories)
         self.osc_server.add_handler("/live/browser/get/items", get_items)
         self.osc_server.add_handler("/live/browser/search", search)
+        def load_item_to_slot(params: Optional[Tuple] = ()) -> Tuple:
+            """params: track_index, slot_index, uri
+
+            Ornegin bir sample'i belirli bir session slotuna yukler.
+            Live, sample yuklerken vurgulanan klip slotunu hedefler.
+            """
+            track_index, slot_index, uri = int(params[0]), int(params[1]), params[2]
+            item = self._find_by_uri(uri)
+            if item is None:
+                raise ValueError("URI bulunamadi: %s" % uri)
+            track = self.song.tracks[track_index]
+            self.song.view.selected_track = track
+            self.song.view.highlighted_clip_slot = track.clip_slots[slot_index]
+            self.browser.load_item(item)
+            return (track_index, slot_index, item.name)
+
+        self.osc_server.add_handler("/live/browser/load_item_to_slot", load_item_to_slot)
         self.osc_server.add_handler("/live/browser/load_item", load_item)
         self.osc_server.add_handler("/live/browser/load_device", load_device)

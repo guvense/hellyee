@@ -271,4 +271,10 @@ class MasterHandler(AbletonOSCHandler):
         add("/live/arrangement/get/clips", arrangement_get_clips)
         add("/live/arrangement/delete_clip", arrangement_delete_clip)
         add("/live/arrangement/clear_track", arrangement_clear_track)
+        def show_session(params: Optional[Tuple] = ()) -> Tuple:
+            import Live
+            Live.Application.get_application().view.show_view("Session")
+            return ("Session",)
+
+        add("/live/view/show_session", show_session)
         add("/live/view/show_arranger", show_arranger)

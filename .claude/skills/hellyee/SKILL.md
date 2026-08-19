@@ -156,6 +156,47 @@ arrangement is. Back the limiter off until they separate by 0.20 or more.
 Check the master for an existing chain first. If the user already masters their
 tracks, do not add a second limiter on top — say what is there and ask.
 
+## When a plugin is needed
+
+Live's stock devices cover synthesis, EQ, compression and limiting — but some
+tasks need third-party plugins. The workflow:
+
+1. **Search what's installed first**: `search_browser("plugins", "<name>")`.
+   Recommend from what the user already owns before suggesting downloads.
+2. **Check exposure before promising control.** Third-party plugins load but
+   most expose only `Device On` until the user clicks Configure and adds
+   parameters by hand. Notable exception: MeldaProduction (M*) plugins expose
+   their full parameter set — MAutoPitch exposed 28, including per-note scale
+   switches. Serum exposed one. Always `list_device_parameters` after loading
+   and say plainly what you can and cannot drive.
+3. **If nothing suitable is installed, recommend a specific plugin** — free
+   first:
+
+| Task | First choice (free) | Notes |
+|---|---|---|
+| Pitch correction / autotune | **MAutoPitch** (Melda) | Full API exposure; lock the per-note switches to the song's scale |
+| Loudness / LUFS metering | **Youlean Loudness Meter** | Readout is invisible to the API — the user reads it, you adjust |
+| Vocal/instrument separation | **demucs** (Python, not a plugin) | Run outside Live on the file, load the stem back in |
+| Synth beyond Wavetable | **Vital** | Wavetable-class; check exposure before sound-designing |
+| Extra saturation/clipper | Stock Saturator first | Reach for plugins only if the user asks by name |
+
+4. State the trade plainly: a recommended plugin the user installs mid-session
+   appears in the browser without restarting Live, but its parameter exposure
+   still follows rule 2.
+
+## Sample loading and audio clips
+
+- **Browser sample loads target the active view.** `load_item` with an audio
+  file lands in the *Session* slot only when Session view is showing — switch
+  first (`/live/view/show_session`), or the load silently goes nowhere.
+  Files must be inside Live's browser locations (User Library) — copy them
+  there first.
+- **Do not toggle `warping` back and forth** — a warp on→off round trip clamps
+  the clip region and truncates the audio. If auto-warp guessed the wrong
+  tempo (chipmunk or slow-motion playback), delete the clip and reload fresh
+  with warping left off; unwarped is the right call for rubato material
+  (vocals) placed over drum-free sections.
+
 ## When setup is the problem
 
 Run `check_connection` first; it names the likely cause. Beyond that:
