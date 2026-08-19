@@ -8,6 +8,11 @@ on:
 jobs:
   test:
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        # Windows'un varsayilan kabugu PowerShell'dir ve heredoc/`python -`
+        # sozdizimini anlamaz; bash tum runner'larda mevcut.
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
@@ -68,6 +73,9 @@ jobs:
   patch-compat:
     name: Remote scripts parse as Python 3.7
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
