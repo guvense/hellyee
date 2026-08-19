@@ -5,8 +5,10 @@ hicbir sey yok, boylece test etmek ve baska bir arayuzden kullanmak kolay.
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 from .music import quantize_notes
-from .osc import AbletonOSC
+from .osc import AbletonOSC, AbletonOSCError
 
 # --------------------------------------------------------------------------
 # yardimcilar
@@ -560,3 +562,60 @@ def set_return_volume(osc: AbletonOSC, return_index: int, level: float) -> str:
 def return_meter(osc: AbletonOSC, return_index: int) -> float:
     return float(_after(osc.query("/live/returns/get/output_meter",
                                   int(return_index)), 1)[0])
+
+
+# --------------------------------------------------------------------------
+# ses dosyasi import - browser + session slot dansinin araclasmis hali
+# --------------------------------------------------------------------------
+HELLYEE_SAMPLES = Path.home() / "Music/Ableton/User Library/Samples/hellyee"
+
+
+def import_audio(osc: AbletonOSC, path: str, track_name: str = "",
+                 track_index: int | None = None, slot: int = 0) -> dict:
+    """Bir ses dosyasini Live'a alir: User Library'ye kopyalar, session
+    gorunumune gecer, klip olarak yukler. Gerekirse audio kanal olusturur.
+
+    Browser yeni dosyayi hemen indekslemeyebilir; kisa aralikla dener.
+    """
+    import re
+    import shutil as _shutil
+    import time as _time
+
+    src = Path(path).expanduser()
+    if not src.exists():
+        raise FileNotFoundError(f"Dosya yok: {src}")
+
+    HELLYEE_SAMPLES.mkdir(parents=True, exist_ok=True)
+    safe = re.sub(r"[^A-Za-z0-9._-]+", "_", src.name)
+    dest = HELLYEE_SAMPLES / safe
+    _shutil.copy2(src, dest)
+
+    if track_index is None:
+        name = track_name or src.stem
+        track_index = create_track(osc, "audio", -1, name)["index"]
+
+    osc.query("/live/view/show_session")
+    uri = f"query:UserLibrary#Samples:hellyee:{safe}"
+    last_error = None
+    for attempt in range(8):
+        try:
+            osc.query("/live/browser/load_item_to_slot", int(track_index),
+                      int(slot), uri, timeout=15.0)
+            _time.sleep(1.0)
+            if osc.query("/live/clip_slot/get/has_clip",
+                         int(track_index), int(slot))[2]:
+                break
+        except AbletonOSCError as exc:
+            last_error = exc
+        _time.sleep(2.5)          # browser indekslemesi icin bekle
+    else:
+        raise AbletonOSCError(
+            f"'{safe}' yuklenemedi. Browser indekslemesi gecikmis olabilir; "
+            f"tekrar dene. Son hata: {last_error}")
+
+    length = float(osc.query("/live/clip/get/length", int(track_index), int(slot))[2])
+    if track_name:
+        set_clip_properties(osc, track_index, slot, name=track_name)
+    return {"track_index": int(track_index), "slot": int(slot),
+            "file": str(dest), "length_beats": round(length, 1),
+            "length_bars": round(length / 4, 1)}

@@ -47,12 +47,13 @@ Claude →  plays the drop · reads every track's meter · adjusts faders ·
 | **Master bus** | Load and control devices on the master track. |
 | **Music theory** | 13 scales, 14 chord types, key-aware note spelling (F minor gives you `Ab`, not `G#`). |
 | **Audio in** | Turn a hummed melody into MIDI, or a spoken command into text. |
+| **Remix & reference** | Analyze any song (key, tempo, band energies), separate its stems with demucs, and import audio onto tracks — reference channels and full remix flows. |
 
-52 tools in total. [Full reference below.](#tools)
+55 tools in total. [Full reference below.](#tools)
 
 ## The skills
 
-The tools are half the story. `hellyee setup` also installs five skills —
+The tools are half the story. `hellyee setup` also installs six skills —
 production knowledge Claude loads when the task calls for it:
 
 | Skill | What it teaches |
@@ -62,6 +63,7 @@ production knowledge Claude loads when the task calls for it:
 | **emotion-to-notes** | Turns a mood ("hüzünlü", "euphoric", "tense") into scale, contour, velocity and density decisions, then verifies the written notes actually match the intended emotion. |
 | **arrangement-transitions** | Risers, gasps, fills and impacts — and which of them each genre actually uses. Carries the measured rule that a drop only hits if the moment before it is smaller. |
 | **mastering-targets** | Loudness per destination (Spotify −14 LUFS, Apple −16, club −6…−9) mapped to Live's meter scale, with section-contrast and kick-survival guardrails. |
+| **remix-and-reference** | Reference-channel workflow (import muted, A/B by solo, level-match before judging) and the remix pipeline: analyze → separate stems → import → rebuild in the target genre. |
 
 Together they are why a one-line request ("make a techno track, master it for
 Spotify") comes out structured like the genre instead of generic MIDI.
@@ -193,7 +195,7 @@ confirm what actually happened.
 ## Tools
 
 <details>
-<summary><b>All 52 tools</b></summary>
+<summary><b>All 55 tools</b></summary>
 
 | Group | Tools |
 |---|---|
@@ -210,7 +212,7 @@ confirm what actually happened.
 | Master | `list_master_devices` · `list_master_device_parameters` · `set_master_parameter` · `load_master_device` |
 | Arrangement | `place_in_arrangement` · `get_arrangement_clips` · `clear_arrangement_track` · `delete_arrangement_clip` · `show_arrangement_view` |
 | Automation | `automate_clip` · `clear_clip_automation` |
-| Audio | `notes_from_audio` · `transcribe_audio` |
+| Audio | `notes_from_audio` · `transcribe_audio` · `analyze_audio_file` · `separate_stems` · `import_audio` |
 
 </details>
 

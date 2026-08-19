@@ -626,6 +626,45 @@ def set_return_volume(return_index: int, level: float) -> str:
 # Ses analizi
 # ==========================================================================
 @server.tool()
+def analyze_audio_file(path: str) -> str:
+    """Bir ses dosyasini analiz eder: sure, tempo, ton adaylari, RMS/tepe,
+    crest orani ve frekans bandi dagilimi (sub/bass/lowmid/mid/high/air %).
+
+    Referans parcayla kiyas, remix oncesi kesif ve import edilecek her dosya
+    icin ilk adim. Ton adaylarinin korelasyonu dusukse (<0.6) emin olma.
+    """
+    from .audio import analyze_file
+    return _json(analyze_file(path))
+
+
+@server.tool()
+def separate_stems(path: str, two_stems: bool = False) -> str:
+    """Bir sarkiyi stemlere ayirir (demucs): vocals + drums + bass + other,
+    veya two_stems=True ile vocals + no_vocals.
+
+    Remix akisinin cekirdegi. Uzun surebilir (tipik sarki 30-90 sn).
+    Donen yollar import_audio ile kanallara alinir. demucs kurulu degilse
+    kurulum komutunu iceren hata doner.
+    """
+    from .audio import separate_stems as _sep
+    return _json(_sep(path, two_stems=two_stems))
+
+
+@server.tool()
+def import_audio(path: str, track_name: str = "",
+                 track_index: int | None = None, slot: int = 0) -> str:
+    """Bir ses dosyasini Live'a alir: User Library'ye kopyalar ve bir audio
+    kanalinda session klibi olarak yukler (kanal yoksa olusturur).
+
+    Referans parca, stem veya herhangi bir sample icin kullan. Warping'e
+    dokunmaz (rubato materyal icin dogru olan bu); tempo kilidi gerekiyorsa
+    kullaniciya sor. Referans kanali icin yukledikten sonra set_mixer ile
+    mute=True yap — referanslar mikste calmamali.
+    """
+    return _json(core.import_audio(osc(), path, track_name, track_index, slot))
+
+
+@server.tool()
 def notes_from_audio(path: str, tempo: float = 120.0,
                      quantize: float = 0.25) -> str:
     """Bir ses dosyasindaki melodiyi MIDI notalarina cevirir.
