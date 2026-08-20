@@ -291,6 +291,9 @@ abletonosc_patch/
   → shipped inside the wheel as hellyee/_patch
 .claude/skills/hellyee/
   SKILL.md          how to drive the tools; loaded by Claude Code
+tests/
+  fake_live.py      in-memory Live + OSC double; no Ableton needed
+  test_automate_arrangement.py
 ```
 
 Working on hellyee itself:
@@ -304,6 +307,16 @@ hellyee setup                  # re-applies the patch from your working copy
 `core.py` holds the logic and knows nothing about Claude, so it is testable on
 its own and drivable from any front end. `mcp_server.py` is a thin layer of
 tool definitions over it.
+
+That is what lets the regression suite run with no Ableton attached:
+`tests/fake_live.py` answers the same OSC addresses the real patch does, and
+reproduces the two behaviours that bugs hide behind — an out-of-range clip slot
+raising *Index out of range*, and `insert_step` accumulating rather than
+replacing. Stdlib `unittest`, no extra dependency:
+
+```bash
+python -m unittest discover -s tests -t .
+```
 
 > ⚠️ **Editing anything in `abletonosc_patch/`?** Those files run inside Live,
 > which embeds **Python 3.7**. Walrus operators (`:=`), builtin generics
