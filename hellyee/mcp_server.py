@@ -339,29 +339,52 @@ def delete_device(track_index: int, device_index: int) -> str:
 @server.tool()
 def set_device_parameter(track_index: int, device_index: int, parameter: str,
                          value: float | None = None,
-                         percent: float | None = None) -> str:
+                         percent: float | None = None,
+                         hz: float | None = None,
+                         display: str | None = None) -> str:
     """Bir device parametresini degistirir (filtre cutoff, rezonans, drive...).
 
-    NEREDEYSE HER ZAMAN `percent` KULLAN. Live'in ham parametre degeri ic
-    olcektedir ve ekranda gorunen birim DEGILDIR: Auto Filter'in Frequency'si
-    20-135 arasindadir ama "265 Hz" olarak gorunur. Hz/dB/ms cinsinden bir
-    sayiyi `value` olarak verirsen yanlis yere gider.
+    Live'in ham parametre degeri ic olcektedir ve ekranda gorunen birim
+    DEGILDIR: Auto Filter'in Frequency'si 20-135 arasindadir ama "265 Hz"
+    olarak gorunur. Bu yuzden bir birim dusunuyorsan onu dogrudan soyle.
 
-    value ve percent'ten SADECE BIRINI ver.
+    value, percent, hz veya display'den TAM BIRINI ver:
+
+    - `hz`: "250 Hz'e kur". Device'in kendi ekran degerini okuyup ikili aramayla
+      oturtur; her device'ta (EQ Eight, Auto Filter, Wavetable) dogru calisir.
+      Yuzde-Hz egrisini elle kalibre etmene gerek yok.
+    - `display`: enum parametreler icin gorunen ad — Sync Rate icin "1/4",
+      Waveform icin "SawDown", Filter Type icin "High Pass 12dB". Eslesme
+      yoksa hata mesaji butun secenekleri listeler.
+    - `percent`: 0-100, parametrenin min-max araligina oturur. Birimi olmayan
+      seyler icin (Amount, Shape, Drive) dogru secim.
+    - `value`: ham ic deger. Sadece min/max'i gorduysen.
 
     Args:
         track_index: Kanal indeksi.
         device_index: list_track_devices'tan gelen device sirasi.
         parameter: Parametre adi ("Frequency") veya indeksi ("2"). Isim tam
             eslesmezse parcali eslesme denenir ("reso" -> "Resonance").
-        percent: 0-100 arasi; parametrenin min-max araligina oturtulur.
-            Tercih edilen yol. "Basi kapat" -> percent=35, "yariya indir" ->
-            mevcut percent'in yarisi (once list_device_parameters ile oku).
-        value: Ham ic deger. Sadece list_device_parameters ile min/max'i
-            gordukten ve o olcekte dusundugunden eminsen kullan.
+        percent: 0-100 arasi oran.
+        hz: Hedef frekans (Hz). Ekranda Hz gosteren parametrelerde.
+        display: Hedefin gorunen adi (enum parametreler).
+        value: Ham ic deger.
     """
     return core.set_device_parameter(osc(), track_index, device_index,
-                                     parameter, value, percent)
+                                     parameter, value, percent, hz, display)
+
+
+@server.tool()
+def get_parameter_options(track_index: int, device_index: int,
+                          parameter: str) -> str:
+    """Enum bir parametrenin tum seceneklerini listeler (deger + gorunen ad).
+
+    "Sync Rate'te 1/4 hangi sayi" diye deneme yanilma yapmayi bitirir.
+    Tarama sirasinda parametre gecici olarak degisir (parca calarken duyulur),
+    sonunda eski degerine doner.
+    """
+    return _json(core.parameter_options(osc(), track_index, device_index,
+                                        parameter))
 
 
 # ==========================================================================
@@ -424,33 +447,45 @@ def load_device_by_uri(track_index: int, uri: str) -> str:
 # Master kanali ve olcum (mastering)
 # ==========================================================================
 @server.tool()
-def measure_track_level(track_index: int, seconds: float = 7.0) -> str:
-    """Bir kanalin cikis seviyesini bir loop boyunca olcer ve tepe/ortalama dondurur.
+def measure_track_level(track_index: int, seconds: float = 8.0,
+                        start_bar: float | None = None) -> str:
+    """Bir kanalin cikis seviyesini olcer ve tepe/ortalama dondurur.
 
     Bu GERCEK olcumdur, tahmin degil. Miks dengesi kurarken kullan: once olc,
     fader'i ayarla, tekrar olc. Live olcegi: 0.85 = 0 dB.
 
+    ARANJMANDA CALISIRKEN `start_bar` VER. Playhead olculecek malzemenin
+    disindaysa sonuc 0.000 gelir ve bu, gercekten sessiz bir kanaldan ayirt
+    edilemez. start_bar verilirse playhead oraya tasinir, calinir, olculur ve
+    sonunda durdurulur.
+
     Args:
         track_index: Kanal indeksi.
-        seconds: Olcum suresi. Tum loop'u kapsamali, yoksa loop'un sadece bir
-            parcasini olcersin. 150 BPM'de 4 bar = 6.4 sn.
+        seconds: Olcum suresi; tum loop'u kapsamali (128 BPM'de 8 bar = 15 sn).
+        start_bar: Olcumun yapilacagi bar. Aranjmanda daima ver.
     """
-    import statistics
-    import time as _t
-    vals = []
-    end = _t.time() + max(1.0, float(seconds))
-    while _t.time() < end:
-        try:
-            vals.append(core.track_meter(osc(), track_index))
-        except Exception:
-            pass
-    if not vals:
-        return _json({"error": "olcum alinamadi; parca caliyor mu?"})
-    return _json({"peak": round(max(vals), 4),
-                  "mean": round(statistics.mean(vals), 4),
-                  "samples": len(vals),
-                  "note": "Live olcegi, 0.85 = 0 dB. ~10 Hz ornekleme, "
-                          "transient tepeleri degil surekli seviyeyi olcer."})
+    return _json(core.measure_tracks(osc(), [track_index], seconds, start_bar))
+
+
+@server.tool()
+def measure_tracks(track_indices: list[int], seconds: float = 8.0,
+                   start_bar: float | None = None) -> str:
+    """Birden cok kanali TEK calma gecisinde olcer ve tepeye gore siralar.
+
+    Miks dengesini kurmanin hizli yolu: butun kanallari ayni bolumde birlikte
+    olc, hiyerarsiyi (kick ustte, bass altinda, lead onun altinda) tek bakista
+    gor. N kanal icin N ayri calma gecisi yapmaktan cok daha hizli.
+
+    Tepe degeri 0.02'nin altinda kalan kanallar "silent" isaretlenir — bunlarin
+    fader'ini YUKSELTME, once neden ses uretmediklerini bul (bos drum pad, yanlis
+    bolum, mute).
+
+    Args:
+        track_indices: Olculecek kanal indeksleri.
+        seconds: Olcum suresi.
+        start_bar: Olcumun yapilacagi bar. Aranjmanda daima ver.
+    """
+    return _json(core.measure_tracks(osc(), track_indices, seconds, start_bar))
 
 
 @server.tool()
@@ -468,13 +503,17 @@ def list_master_device_parameters(device_index: int) -> str:
 @server.tool()
 def set_master_parameter(device_index: int, parameter: str,
                          value: float | None = None,
-                         percent: float | None = None) -> str:
-    """Master'daki bir device parametresini ayarlar. `percent` tercih et.
+                         percent: float | None = None,
+                         hz: float | None = None,
+                         display: str | None = None) -> str:
+    """Master'daki bir device parametresini ayarlar.
 
-    Ham deger ekrandaki birim degildir; percent 0-100 arasi parametrenin
-    kendi araligina oturur ve sonuc okunur haliyle geri doner.
+    value / percent / hz / display'den TAM BIRINI ver; kurallar
+    set_device_parameter ile ayni (hz ekran degerinden ikili aramayla oturur,
+    display enum adiyla eslesir).
     """
-    return core.set_master_parameter(osc(), device_index, parameter, value, percent)
+    return core.set_master_parameter(osc(), device_index, parameter, value,
+                                     percent, hz, display)
 
 
 @server.tool()
@@ -626,6 +665,92 @@ def set_return_volume(return_index: int, level: float) -> str:
 # Ses analizi
 # ==========================================================================
 @server.tool()
+def analyze_audio_file(path: str) -> str:
+    """Bir ses dosyasini analiz eder: sure, tempo, ton adaylari, RMS/tepe,
+    crest orani ve frekans bandi dagilimi (sub/bass/lowmid/mid/high/air %).
+
+    Referans parcayla kiyas, remix oncesi kesif ve import edilecek her dosya
+    icin ilk adim. Ton adaylarinin korelasyonu dusukse (<0.6) emin olma.
+    """
+    from .audio import analyze_file
+    return _json(analyze_file(path))
+
+
+@server.tool()
+def record_master(start_bar: float, bars: float = 8, analyze: bool = True) -> str:
+    """Aranjmani calarken master ciktisini kaydeder (Resampling) ve analiz eder.
+
+    Kulak dongusu: mix/mastering karari vermeden once ilgili bolumu kaydet,
+    bant dagilimina bak, ondan sonra EQ/seviye oyna. "REC" adli bir audio
+    kanal olusturur/kullanir (mute'lu, monitoru kapali — sese karismaz).
+    Kayit bir sonraki bar sinirinda basladigi icin start_bar'dan 1 bar once
+    baslamak isteyebilirsin. Bloklar: bars*4 beat + pay kadar surer.
+    Donen dosya yolu compare_audio_files'a da verilebilir.
+    """
+    info = core.record_master(osc(), start_bar, bars)
+    if analyze:
+        from .audio import analyze_file
+        info["analysis"] = analyze_file(info["file"])
+    return _json(info)
+
+
+@server.tool()
+def compare_audio_files(mix_path: str, ref_path: str) -> str:
+    """Mix'i referans parcayla bant bant kiyaslar; sonuc dogal olarak
+    seviye-esitlenmistir (bant paylari yuzde).
+
+    band_delta_db pozitifse mix'te o bolge referanstan fazla demektir.
+    verdict alani dogrudan aksiyon soyler ("lowmid'i kis" gibi). Mix tarafi
+    icin record_master ciktisini, referans icin kullanicinin verdigi dosyayi
+    kullan. +-2 dB icindeki farklari dert etme.
+    """
+    from .audio import compare_files
+    return _json(compare_files(mix_path, ref_path))
+
+
+@server.tool()
+def apply_groove(track_index: int, clip_index: int, swing: float = 0.0,
+                 timing_jitter: float = 0.0, velocity_jitter: int = 0,
+                 seed: int | None = None) -> str:
+    """Klipteki notalara insani his katar: 16'lik swing (0..1), mikro zaman
+    kaymasi (beat, 0.02 tipik) ve velocity dalgalanmasi (+-8 tipik).
+
+    Grid'e kilitli, mekanik duyulan MIDI'nin ilaci. Ayni seed ayni sonucu
+    verir; iki kez ust uste uygulama — jitter birikir. Davul/perc icin swing,
+    melodik klipler icin dusuk jitter degerleri yeterli.
+    """
+    return _json(core.apply_groove(osc(), track_index, clip_index, swing,
+                                   timing_jitter, velocity_jitter, seed))
+
+
+@server.tool()
+def separate_stems(path: str, two_stems: bool = False) -> str:
+    """Bir sarkiyi stemlere ayirir (demucs): vocals + drums + bass + other,
+    veya two_stems=True ile vocals + no_vocals.
+
+    Remix akisinin cekirdegi. Uzun surebilir (tipik sarki 30-90 sn).
+    Donen yollar import_audio ile kanallara alinir. demucs kurulu degilse
+    kurulum komutunu iceren hata doner.
+    """
+    from .audio import separate_stems as _sep
+    return _json(_sep(path, two_stems=two_stems))
+
+
+@server.tool()
+def import_audio(path: str, track_name: str = "",
+                 track_index: int | None = None, slot: int = 0) -> str:
+    """Bir ses dosyasini Live'a alir: User Library'ye kopyalar ve bir audio
+    kanalinda session klibi olarak yukler (kanal yoksa olusturur).
+
+    Referans parca, stem veya herhangi bir sample icin kullan. Warping'e
+    dokunmaz (rubato materyal icin dogru olan bu); tempo kilidi gerekiyorsa
+    kullaniciya sor. Referans kanali icin yukledikten sonra set_mixer ile
+    mute=True yap — referanslar mikste calmamali.
+    """
+    return _json(core.import_audio(osc(), path, track_name, track_index, slot))
+
+
+@server.tool()
 def notes_from_audio(path: str, tempo: float = 120.0,
                      quantize: float = 0.25) -> str:
     """Bir ses dosyasindaki melodiyi MIDI notalarina cevirir.
@@ -660,6 +785,204 @@ def transcribe_audio(path: str) -> str:
     except ImportError as exc:
         return (f"Ses ozellikleri kurulu degil ({exc.name}). "
                 'Kur: pip install "hellyee[audio]"')
+
+
+# ==========================================================================
+# Drum rack ve session envanteri
+# ==========================================================================
+@server.tool()
+def get_drum_pads(track_index: int, device_index: int) -> str:
+    """Yuklu drum rack'te GERCEKTEN dolu olan pad'leri listeler.
+
+    get_drum_map Live'in standart eslemesini verir (kick 36, shaker 70...) ama
+    her rack o notalarin hepsini karsilamaz. Bos bir pad'e nota yazmak HATA
+    VERMEZ, sadece sessizdir — ve bu, aranjman kurulduktan sonra bant
+    analizinde ortaya cikar. Davul pattern'i yazmadan once bunu cagir ve
+    kullanacagin her notanin listede oldugunu dogrula.
+    """
+    return _json(core.drum_pads(osc(), track_index, device_index))
+
+
+@server.tool()
+def list_session_clips(track_index: int) -> str:
+    """Kanalin session slotlarindaki klipleri listeler (slot, isim, uzunluk).
+
+    Hangi slotta ne var; slot indekslerini akilda tutmaya gerek kalmaz.
+    """
+    return _json(core.session_clips(osc(), track_index))
+
+
+# ==========================================================================
+# Playhead, loop ve aranjman uzunlugu
+# ==========================================================================
+@server.tool()
+def set_playhead(bar: float) -> str:
+    """Aranjman playhead'ini bir bar'a tasir (0 tabanli).
+
+    transport("start") her zaman basa doner; once baslat, SONRA konumlandir.
+    """
+    return core.set_playhead(osc(), bar)
+
+
+@server.tool()
+def set_loop(start_bar: float | None = None, end_bar: float | None = None,
+             enabled: bool | None = None) -> str:
+    """Aranjman loop parantezini ayarlar (bar cinsinden).
+
+    Bir bolumu tekrar tekrar dinleyip ayar yapmak icin: loop'u o bolume kur,
+    calmaya birak, parametreleri degistir.
+    """
+    return core.set_loop(osc(), start_bar, end_bar, enabled)
+
+
+@server.tool()
+def back_to_arranger() -> str:
+    """Session klibi tetiklenmis kanallari aranjmana geri dondurur.
+
+    Bir kanalda session klibi bir kez calistiysa o kanal arrangement kliplerini
+    sessizce yok sayar — hata yok, sadece sessizlik. Aranjman calmiyorsa ilk
+    buna bak.
+    """
+    return core.back_to_arranger(osc())
+
+
+@server.tool()
+def get_arrangement_length() -> str:
+    """Aranjmandaki en son klibin bittigi bar'i dondurur."""
+    return _json({"end_bar": core.arrangement_end_bar(osc())})
+
+
+# ==========================================================================
+# Return kanal device'lari (send efektleri)
+# ==========================================================================
+@server.tool()
+def list_return_devices(return_index: int) -> str:
+    """Bir return kanalindaki device'lari listeler.
+
+    Send seviyesi ayarlamadan once oraya NE gonderdigini gor: 0.5 send, decay'i
+    1 sn olan bir reverb'e mi gidiyor, 8 sn olan bir hall'a mi — mikste tamamen
+    baska sonuc verir.
+    """
+    return _json(core.list_return_devices(osc(), return_index))
+
+
+@server.tool()
+def list_return_device_parameters(return_index: int, device_index: int) -> str:
+    """Return kanalindaki bir device'in parametrelerini listeler."""
+    return _json(core.list_return_device_parameters(osc(), return_index,
+                                                    device_index))
+
+
+@server.tool()
+def set_return_parameter(return_index: int, device_index: int, parameter: str,
+                         value: float | None = None,
+                         percent: float | None = None,
+                         hz: float | None = None,
+                         display: str | None = None) -> str:
+    """Return kanalindaki bir device parametresini ayarlar (reverb decay vb.).
+
+    value / percent / hz / display kurallari set_device_parameter ile ayni.
+    """
+    return core.set_return_parameter(osc(), return_index, device_index,
+                                     parameter, value, percent, hz, display)
+
+
+@server.tool()
+def load_return_device(return_index: int, category: str, query: str) -> str:
+    """Return kanalinin zincirine device ekler (send efekti kurmak icin)."""
+    return _json(core.load_return_device(osc(), return_index, category, query))
+
+
+# ==========================================================================
+# Audio klip ozellikleri
+# ==========================================================================
+@server.tool()
+def set_audio_clip(track_index: int, clip_index: int,
+                   gain: float | None = None,
+                   pitch_coarse: int | None = None,
+                   pitch_fine: float | None = None,
+                   warping: bool | None = None,
+                   warp_mode: int | None = None,
+                   force: bool = False) -> str:
+    """Audio klibin gain / transpoze / warp ayarlarini degistirir.
+
+    Stem ve sample'lari Live icinde dengelemek icin — dosyayi disarida yeniden
+    yazmaya gerek kalmaz.
+
+    Args:
+        gain: 0.0-1.0 (0.5 ~ 0 dB).
+        pitch_coarse: Yari ton, +-48. 3 yari tondan fazlasi belirgin artifakt.
+        pitch_fine: Cent, +-50.
+        warping: Warp acik/kapali. ACIKTAN KAPALIYA gecis klip bolgesini kirpar
+            ve sesi kisaltir; bu yuzden reddedilir. Gercekten gerekiyorsa klibi
+            silip warp'siz yeniden yukle, ya da force=True ver.
+        warp_mode: Warp algoritmasi indeksi.
+        force: Warp kapatma korumasini devre disi birakir.
+    """
+    return core.set_audio_clip(osc(), track_index, clip_index, gain,
+                               pitch_coarse, pitch_fine, warping, warp_mode,
+                               force)
+
+
+# ==========================================================================
+# Aranjman otomasyonu ve tazeleme
+# ==========================================================================
+@server.tool()
+def automate_arrangement(track_index: int, device_index: int, parameter: str,
+                         points: list[dict], max_clips: int = 16) -> str:
+    """Aranjman zaman cizgisi boyunca otomasyon yazar (MUTLAK bar cinsinden).
+
+    automate_clip tek bir klibin icinde kalir — 32 barlik bir filtre supurmesini
+    4 barlik kliplere elle bolmen gerekirdi. Uzun soluklu hareketler (breakdown
+    acilisi, build boyunca yukselen filtre) bununla yazilir.
+
+    Live envelope'lari YALNIZCA session kliplerinde olusturur, o yuzden bu
+    fonksiyon kapsanan her yerlesim icin "<klip> ~b<bar>" adli bir session klip
+    varyanti acar, supurmenin o dilimini oraya yazar ve ayni konuma yerlestirir.
+    Session gorunumunde yeni klipler gormen normaldir. Ayni araligi tekrar
+    otomatiklestirirsen varyantlar yeniden kullanilir, birikmez.
+
+    Args:
+        track_index: Kanal indeksi.
+        device_index: list_track_devices'tan device sirasi.
+        parameter: Parametre adi veya indeksi.
+        points: [{"bar": 96, "percent": 30}, {"bar": 128, "percent": 95}]
+            bar MUTLAK aranjman bari (0 tabanli); percent yerine "value" de
+            verilebilir. Aradaki degerler dogrusal interpolasyonla doldurulur.
+        max_clips: Kac yerlesime kadar varyant acilsin (guvenlik siniri).
+    """
+    return core.automate_arrangement(osc(), track_index, device_index,
+                                     parameter, points, max_clips)
+
+
+@server.tool()
+def refresh_arrangement_track(track_index: int) -> str:
+    """Kanalin arrangement kliplerini session kliplerinden yeniden uretir.
+
+    place_in_arrangement kopyayi o ANKI haliyle dondurur; session klibinin
+    notalarini veya otomasyonunu sonradan duzeltmek aranjmandakileri
+    DEGISTIRMEZ ve hata da vermez — kullanici eski hali duymaya devam eder.
+    Bir session klibini duzelttikten sonra bunu cagir: mevcut yerlesim (isim +
+    konum) korunur, klipler tazelenir.
+
+    Arrangement klibinin isminin session klibiyle eslesmesi gerekir; eslesmeyen
+    varsa hicbir sey silinmez ve hata dondurulur.
+    """
+    return core.refresh_arrangement_track(osc(), track_index)
+
+
+@server.tool()
+def render_arrangement(start_bar: float = 0, end_bar: float | None = None,
+                       track_name: str = "RENDER") -> str:
+    """Aranjmanin tamamini master'dan wav'a kaydeder (teslim edilecek dosya).
+
+    Live'in Export Audio penceresi API'ye acik degil; bu, Resampling yolunu tum
+    parca boyunca kullanir. GERCEK ZAMANLI calisir: 5 dakikalik parca 5 dakika
+    surer. Hizli mix kontrolu icin bolum bazli record_master yeterli.
+
+    end_bar verilmezse aranjmanin sonu otomatik bulunur.
+    """
+    return _json(core.render_arrangement(osc(), start_bar, end_bar, track_name))
 
 
 if __name__ == "__main__":

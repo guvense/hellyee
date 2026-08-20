@@ -28,6 +28,34 @@ def _connect() -> AbletonOSC:
     return osc
 
 
+#: doctor'in kontrol ettigi yeni OSC route'lari — (ad, route, argumanlar).
+#: Kayitli olmayan bir route hic cevap vermez; kayitli olup hata donen route
+#: /live/error yollar. Ikisi de istisna atar ama mesajlari farklidir, o yuzden
+#: "eksik" ile "var ama bu argumanla calismadi" ayirt edilebilir.
+_CAPABILITY_PROBES = (
+    ("session slot envanteri", "/live/track/get/clip_slots", (0,)),
+    ("return device'lari", "/live/returns/get/devices/name", (0,)),
+    ("drum pad okuma", "/live/drumrack/get/pads", (0, 0)),
+)
+
+
+def _probe_capabilities(osc: AbletonOSC) -> list[str]:
+    """Yamanin guncel olup olmadigini kontrol eder; eksik yetenekleri dondurur."""
+    missing = []
+    for label, route, args in _CAPABILITY_PROBES:
+        try:
+            osc.query(route, *args, timeout=2.0)
+        except AbletonOSCError as exc:
+            #------------------------------------------------------------------
+            # "cevap gelmedi" = route kayitli degil (yama bayat).
+            # Baska bir hata = route var, sadece bu argumanla calismadi
+            # (ornek: 0. device bir drum rack degil) — sorun yok.
+            #------------------------------------------------------------------
+            if "cevap gelmedi" in str(exc):
+                missing.append(label)
+    return missing
+
+
 def cmd_doctor(args) -> int:
     osc = _connect()
     print(json.dumps(core.song_status(osc), ensure_ascii=False, indent=2))
@@ -47,6 +75,16 @@ def cmd_doctor(args) -> int:
         print("Master handler'i YOK — mastering ve arrangement calismaz.\n"
               "  hellyee setup   (ve Live'i yeniden baslat)", file=sys.stderr)
         return 1
+
+    missing = _probe_capabilities(osc)
+    if missing:
+        print("\nHandler'lar BAYAT — su yetenekler eksik: "
+              + ", ".join(missing) + "\n"
+              "  hellyee setup   (Live'i yeniden baslatmaya gerek yok, "
+              "yama /live/api/reload ile tazelenir)", file=sys.stderr)
+        return 1
+    print("Yeni yetenekler kurulu (drum pad, session slot, return device, "
+          "aranjman otomasyonu)")
 
     try:
         import librosa  # noqa: F401
@@ -88,12 +126,57 @@ def cmd_smoke(args) -> int:
         print(f"device yukleme basarisiz: {exc}", file=sys.stderr)
         ok = False
 
+    ok = _smoke_new_features(osc, idx) and ok
+
     if args.keep:
         print(f"\nTest kanali birakildi (index {idx}).")
     else:
         core.delete_track(osc, idx)
         print("\nTest kanali silindi.")
     return 0 if ok else 1
+
+
+def _smoke_new_features(osc: AbletonOSC, idx: int) -> bool:
+    """Yeni yeteneklerin ucdan uca testi. Sadece test kanalina dokunur."""
+    ok = True
+
+    def step(label, fn):
+        nonlocal ok
+        try:
+            print(f"  {label}: {fn()}")
+        except Exception as exc:
+            print(f"  {label}: BASARISIZ — {exc}", file=sys.stderr)
+            ok = False
+
+    print("\nyeni yetenekler:")
+    step("session slotlari",
+         lambda: [c["name"] for c in core.session_clips(osc, idx)])
+    step("playhead", lambda: core.set_playhead(osc, 0))
+    step("loop", lambda: core.set_loop(osc, 0, 4, enabled=False))
+    step("aranjman sonu", lambda: core.arrangement_end_bar(osc))
+    step("return device'lari",
+         lambda: [d["name"] for d in core.list_return_devices(osc, 0)])
+    step("birim farkindalikli parametre",
+         lambda: core.set_device_parameter(osc, idx, 0, "Filter Freq", hz=2000))
+    step("enum secenekleri",
+         lambda: len(core.parameter_options(osc, idx, 0, "Filter Type")["options"]))
+
+    #----------------------------------------------------------------------
+    # Aranjman otomasyonu ve tazeleme: klip yerlestirmeyi gerektirir.
+    #----------------------------------------------------------------------
+    try:
+        core.place_in_arrangement(osc, idx, 0, 0.0, repeats=4)
+        step("aranjman otomasyonu", lambda: core.automate_arrangement(
+            osc, idx, 0, "Filter Freq",
+            [{"bar": 0, "percent": 20}, {"bar": 4, "percent": 90}]))
+        step("aranjman tazeleme",
+             lambda: core.refresh_arrangement_track(osc, idx))
+        core.clear_arrangement_track(osc, idx)
+    except Exception as exc:
+        print(f"  aranjman testi BASARISIZ — {exc}", file=sys.stderr)
+        ok = False
+
+    return ok
 
 
 def cmd_setup(args) -> int:

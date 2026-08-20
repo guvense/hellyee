@@ -125,3 +125,136 @@ def record(seconds: float = 6.0, path: str = "/tmp/hellyee_input.wav",
     sd.wait()
     sf.write(path, audio, samplerate)
     return path
+
+
+# --------------------------------------------------------------------------
+# 3) Dosya analizi — referans/remix icin
+# --------------------------------------------------------------------------
+def _load_any(path: str, sr: int = 22050):
+    """m4a dahil yukler; gerekirse macOS afconvert ile wav'a cevirir."""
+    import subprocess, tempfile, os
+    import librosa
+
+    ext = os.path.splitext(path)[1].lower()
+    if ext in (".wav", ".aif", ".aiff", ".flac", ".mp3", ".ogg"):
+        return librosa.load(path, sr=sr, mono=True)
+    tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+    tmp.close()
+    subprocess.run(["afconvert", "-f", "WAVE", "-d", "LEI16", path, tmp.name],
+                   check=True, capture_output=True)
+    try:
+        return librosa.load(tmp.name, sr=sr, mono=True)
+    finally:
+        os.unlink(tmp.name)
+
+
+def analyze_file(path: str) -> dict:
+    """Sure, tempo, ton, seviye ve bant dagilimi — referans kiyasi icin."""
+    import librosa
+    import numpy as np
+
+    y, sr = _load_any(path)
+    duration = len(y) / sr
+
+    tempo = float(np.atleast_1d(librosa.beat.beat_track(y=y, sr=sr)[0])[0])
+
+    chroma = librosa.feature.chroma_cqt(y=y, sr=sr).mean(axis=1)
+    maj = np.array([6.35,2.23,3.48,2.33,4.38,4.09,2.52,5.19,2.39,3.66,2.29,2.88])
+    minp = np.array([6.33,2.68,3.52,5.38,2.60,3.53,2.54,4.75,3.98,2.69,3.34,3.17])
+    names = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"]
+    scored = []
+    for i in range(12):
+        scored.append((float(np.corrcoef(np.roll(maj, i), chroma)[0, 1]), names[i], "major"))
+        scored.append((float(np.corrcoef(np.roll(minp, i), chroma)[0, 1]), names[i], "minor"))
+    scored.sort(reverse=True)
+
+    rms = float(librosa.feature.rms(y=y)[0].mean())
+    peak = float(np.abs(y).max())
+
+    # bant enerjileri: referansla spektral kiyasin temeli
+    S = np.abs(librosa.stft(y, n_fft=4096)) ** 2
+    freqs = librosa.fft_frequencies(sr=sr, n_fft=4096)
+    bands = {"sub_<60": (0, 60), "bass_60_250": (60, 250),
+             "lowmid_250_800": (250, 800), "mid_800_2500": (800, 2500),
+             "high_2500_8000": (2500, 8000), "air_>8000": (8000, sr / 2)}
+    total = S.sum() or 1.0
+    band_pct = {k: round(float(S[(freqs >= lo) & (freqs < hi)].sum() / total * 100), 1)
+                for k, (lo, hi) in bands.items()}
+
+    return {"duration_sec": round(duration, 1), "tempo_estimate": round(tempo, 1),
+            "key_guesses": [{"key": f"{r} {m}", "correlation": round(c, 3)}
+                            for c, r, m in scored[:3]],
+            "rms": round(rms, 4), "peak": round(peak, 3),
+            "crest_ratio": round(peak / max(rms, 1e-6), 1),
+            "band_energy_pct": band_pct}
+
+
+def compare_files(mix_path: str, ref_path: str) -> dict:
+    """Mix'i referans parcayla bant bant kiyaslar.
+
+    Bant paylari toplam enerjinin yuzdesi oldugundan kiyas dogal olarak
+    seviye-esitlenmistir: delta, "referans gibi tinlamasi icin hangi bolge
+    kac dB oynamali" demektir. level_delta_db ise mutlak seviye farkidir.
+    """
+    import math
+
+    a = analyze_file(mix_path)
+    b = analyze_file(ref_path)
+    deltas = {}
+    for k in a["band_energy_pct"]:
+        ma = max(a["band_energy_pct"][k], 0.01)
+        mb = max(b["band_energy_pct"].get(k, 0.01), 0.01)
+        deltas[k] = round(10 * math.log10(ma / mb), 1)
+    level = round(20 * math.log10(max(a["rms"], 1e-6) / max(b["rms"], 1e-6)), 1)
+    verdict = []
+    for k, d in deltas.items():
+        if d >= 2:
+            verdict.append(f"{k}: mix'te {d:+.1f} dB fazla — bu bolgeyi kis")
+        elif d <= -2:
+            verdict.append(f"{k}: mix'te {d:+.1f} dB eksik — bu bolgeyi ac")
+    if not verdict:
+        verdict = ["bant dagilimi referansla uyumlu (+-2 dB icinde)"]
+    if a["crest_ratio"] > b["crest_ratio"] * 1.6:
+        verdict.append("mix referanstan cok daha az kompresli (crest yuksek)")
+    elif b["crest_ratio"] > a["crest_ratio"] * 1.6:
+        verdict.append("mix referanstan cok daha fazla kompresli (crest dusuk)")
+    return {"band_delta_db": deltas, "level_delta_db": level,
+            "verdict": verdict,
+            "mix": {k: a[k] for k in ("rms", "peak", "crest_ratio", "band_energy_pct")},
+            "ref": {k: b[k] for k in ("rms", "peak", "crest_ratio", "band_energy_pct")}}
+
+
+# --------------------------------------------------------------------------
+# 4) Stem ayirma — demucs (istege bagli bagimlilik)
+# --------------------------------------------------------------------------
+def separate_stems(path: str, two_stems: bool = False,
+                   out_dir: str = "/tmp/hellyee_stems") -> dict:
+    """Sarkiyi stemlere ayirir. two_stems=True: vocals + no_vocals;
+    False: vocals + drums + bass + other. demucs gerektirir."""
+    import importlib.util, os, subprocess, sys
+
+    if importlib.util.find_spec("demucs") is None:
+        raise RuntimeError('demucs kurulu degil: pip install "hellyee[remix]" '
+                           "veya pip install demucs")
+    # m4a'yi demucs'tan once wav'a cevir (guvenli yol)
+    ext = os.path.splitext(path)[1].lower()
+    if ext not in (".wav", ".mp3", ".flac"):
+        wav = os.path.join(out_dir, "input.wav")
+        os.makedirs(out_dir, exist_ok=True)
+        subprocess.run(["afconvert", "-f", "WAVE", "-d", "LEI16", path, wav],
+                       check=True, capture_output=True)
+        path = wav
+
+    cmd = [sys.executable, "-m", "demucs", "-o", out_dir]
+    if two_stems:
+        cmd += ["--two-stems", "vocals"]
+    cmd.append(path)
+    subprocess.run(cmd, check=True, capture_output=True, timeout=1800)
+
+    stem_name = os.path.splitext(os.path.basename(path))[0]
+    stem_dir = os.path.join(out_dir, "htdemucs", stem_name)
+    stems = {os.path.splitext(f)[0]: os.path.join(stem_dir, f)
+             for f in sorted(os.listdir(stem_dir)) if f.endswith(".wav")}
+    if not stems:
+        raise RuntimeError(f"Stem bulunamadi: {stem_dir}")
+    return stems

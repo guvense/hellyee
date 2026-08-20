@@ -30,6 +30,9 @@ jobs:
       - name: Import check
         run: python -c "from hellyee import core, music, osc, setup_cli; print('ok')"
 
+      - name: Regression tests
+        run: python -m unittest discover -s tests -t . -v
+
       - name: MCP server starts and registers tools
         run: |
           python -c "
