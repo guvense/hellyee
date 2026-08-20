@@ -130,10 +130,14 @@ class BrowserHandler(AbletonOSCHandler):
 
     def _select_track(self, track_index: int):
         #----------------------------------------------------------------------
-        # Negatif indeks master kanali demektir (mastering zinciri icin).
+        # Negatif indeksler normal kanal disini adresler:
+        #   -1        -> master (mastering zinciri)
+        #   -2, -3... -> return A, B, ... (send efektleri)
         #----------------------------------------------------------------------
-        if track_index < 0:
+        if track_index == -1:
             track = self.song.master_track
+        elif track_index < -1:
+            track = self.song.return_tracks[-2 - track_index]
         else:
             track = self.song.tracks[track_index]
         self.song.view.selected_track = track

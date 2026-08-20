@@ -152,14 +152,12 @@ class MasterHandler(AbletonOSCHandler):
             return ("Arranger",)
 
         # ---- automation ---------------------------------------------------
-        def _clip_at(track_index, arr_index):
-            track = self.song.tracks[int(track_index)]
-            clips = sorted(track.arrangement_clips, key=lambda c: c.start_time)
-            index = int(arr_index)
-            if not 0 <= index < len(clips):
-                raise ValueError("Arrangement klip indeksi araligin disinda")
-            return track, clips[index]
-
+        #------------------------------------------------------------------
+        # Live envelope'lari YALNIZCA session kliplerinde olusturur; bir
+        # arrangement klibinde create_automation_envelope cagirmak
+        # "Not a session clip" hatasi verir. Uzun soluklu supurmeler bu yuzden
+        # core tarafinda session klip varyantlarina bolunerek yazilir.
+        #------------------------------------------------------------------
         def _parameter(track_index, device_index, parameter_index):
             track = self.song.tracks[int(track_index)]
             device = track.devices[int(device_index)]
@@ -201,52 +199,23 @@ class MasterHandler(AbletonOSCHandler):
             envelope.insert_step(pairs[-1][0], STEP, pairs[-1][1])
             return (track_index, slot_index, parameter.name, written + 1)
 
-        def automate(params: Optional[Tuple] = ()) -> Tuple:
-            """params: track, arr_clip_index, device, parameter, t0,v0, t1,v1, ...
-
-            Zaman degerleri klip BASLANGICINA gore vurus cinsindendir.
-            Ardisik noktalar arasi dogrusal interpolasyonla adimlanir.
-            """
-            track_index, arr_index, device_index, parameter_index = params[:4]
-            points = params[4:]
-            if len(points) < 4 or len(points) % 2:
-                raise ValueError("En az iki (zaman, deger) cifti gerekir")
-
-            _, clip = _clip_at(track_index, arr_index)
-            parameter = _parameter(track_index, device_index, parameter_index)
-            envelope = clip.automation_envelope(parameter)
-            if envelope is None:
-                envelope = clip.create_automation_envelope(parameter)
-
-            pairs = [(float(points[i]), float(points[i + 1]))
-                     for i in range(0, len(points), 2)]
-            #------------------------------------------------------------------
-            # insert_step sabit deger yazar; suzgec supurmesi icin ince adimlara
-            # bolup dogrusal interpolasyon uygularz.
-            #------------------------------------------------------------------
-            STEP = 0.125                      # 32'lik cozunurluk
-            written = 0
-            for (t0, v0), (t1, v1) in zip(pairs, pairs[1:]):
-                span = max(0.0, t1 - t0)
-                steps = max(1, int(span / STEP))
-                for k in range(steps):
-                    frac = k / float(steps)
-                    envelope.insert_step(t0 + k * STEP, STEP, v0 + (v1 - v0) * frac)
-                    written += 1
-            envelope.insert_step(pairs[-1][0], STEP, pairs[-1][1])
-            return (track_index, arr_index, parameter.name, written + 1)
-
         def clear_automation(params: Optional[Tuple] = ()) -> Tuple:
-            """params: track, arr_clip_index, device, parameter"""
-            track_index, arr_index, device_index, parameter_index = params[:4]
-            _, clip = _clip_at(track_index, arr_index)
+            """params: track, clip_slot, device, parameter — SESSION klibi.
+
+            automate_session'in karsiligi. Live envelope'lari yalnizca session
+            kliplerinde yonetir, o yuzden temizleme de orada yapilir.
+            """
+            track_index, slot_index, device_index, parameter_index = params[:4]
+            track = self.song.tracks[int(track_index)]
+            clip_slot = track.clip_slots[int(slot_index)]
+            if not clip_slot.has_clip:
+                raise ValueError("Slotta klip yok")
             parameter = _parameter(track_index, device_index, parameter_index)
-            clip.clear_envelope(parameter)
-            return (track_index, arr_index, parameter.name)
+            clip_slot.clip.clear_envelope(parameter)
+            return (track_index, slot_index, parameter.name)
 
         add("/live/clip/automate", automate_session)
-        add("/live/arrangement/automate", automate)
-        add("/live/arrangement/clear_automation", clear_automation)
+        add("/live/clip/clear_automation", clear_automation)
         # ---- return kanallari -------------------------------------------
         def returns_get_names(params: Optional[Tuple] = ()) -> Tuple:
             return tuple(t.name for t in self.song.return_tracks)
@@ -278,3 +247,91 @@ class MasterHandler(AbletonOSCHandler):
 
         add("/live/view/show_session", show_session)
         add("/live/view/show_arranger", show_arranger)
+
+        # ---- drum rack ----------------------------------------------------
+        def drumrack_get_pads(params: Optional[Tuple] = ()) -> Tuple:
+            """params: track_index, device_index -> (note, name, chain_sayisi)*
+
+            SADECE dolu pad'leri dondurur. get_drum_map Live'in *standart*
+            eslemesini verir; bu, yuklu rack'in gercekten ne caldigini. Fark
+            sessiz bir pattern olarak ortaya cikar ve hata vermez, o yuzden
+            pattern yazmadan once buna bak.
+            """
+            track = self.song.tracks[int(params[0])]
+            device = track.devices[int(params[1])]
+            if not getattr(device, "can_have_drum_pads", False):
+                raise ValueError("Device bir drum rack degil: %s" % device.name)
+            out = []
+            for pad in device.drum_pads:
+                count = len(pad.chains)
+                if count:
+                    out += [pad.note, pad.name, count]
+            return (params[0], params[1]) + tuple(out)
+
+        add("/live/drumrack/get/pads", drumrack_get_pads)
+
+        # ---- return kanal device'lari -------------------------------------
+        def _return_device(return_index, device_index):
+            return self.song.return_tracks[int(return_index)].devices[int(device_index)]
+
+        def returns_get_devices_name(params: Optional[Tuple] = ()) -> Tuple:
+            devices = self.song.return_tracks[int(params[0])].devices
+            return (params[0],) + tuple(d.name for d in devices)
+
+        def returns_get_devices_class_name(params: Optional[Tuple] = ()) -> Tuple:
+            devices = self.song.return_tracks[int(params[0])].devices
+            return (params[0],) + tuple(d.class_name for d in devices)
+
+        def returns_get_parameters_name(params: Optional[Tuple] = ()) -> Tuple:
+            device = _return_device(params[0], params[1])
+            return (params[0], params[1]) + tuple(p.name for p in device.parameters)
+
+        def returns_get_parameters_value(params: Optional[Tuple] = ()) -> Tuple:
+            device = _return_device(params[0], params[1])
+            return (params[0], params[1]) + tuple(p.value for p in device.parameters)
+
+        def returns_get_parameters_min(params: Optional[Tuple] = ()) -> Tuple:
+            device = _return_device(params[0], params[1])
+            return (params[0], params[1]) + tuple(p.min for p in device.parameters)
+
+        def returns_get_parameters_max(params: Optional[Tuple] = ()) -> Tuple:
+            device = _return_device(params[0], params[1])
+            return (params[0], params[1]) + tuple(p.max for p in device.parameters)
+
+        def returns_set_parameter_value(params: Optional[Tuple] = ()) -> Tuple:
+            device = _return_device(params[0], params[1])
+            parameter = device.parameters[int(params[2])]
+            parameter.value = float(params[3])
+            return (params[0], params[1], params[2], parameter.value)
+
+        def returns_get_parameter_value_string(params: Optional[Tuple] = ()) -> Tuple:
+            device = _return_device(params[0], params[1])
+            parameter = device.parameters[int(params[2])]
+            return (params[0], params[1], params[2], str(parameter))
+
+        add("/live/returns/get/devices/name", returns_get_devices_name)
+        add("/live/returns/get/devices/class_name", returns_get_devices_class_name)
+        add("/live/returns/get/device/parameters/name", returns_get_parameters_name)
+        add("/live/returns/get/device/parameters/value", returns_get_parameters_value)
+        add("/live/returns/get/device/parameters/min", returns_get_parameters_min)
+        add("/live/returns/get/device/parameters/max", returns_get_parameters_max)
+        add("/live/returns/set/device/parameter/value", returns_set_parameter_value)
+        add("/live/returns/get/device/parameter/value_string",
+            returns_get_parameter_value_string)
+
+
+        # ---- session slot envanteri ---------------------------------------
+        def track_get_clip_slots(params: Optional[Tuple] = ()) -> Tuple:
+            """params: track_index -> (slot, isim, uzunluk) ucluleri (dolu olanlar)
+
+            Hangi slotta ne var, tek cagriyla. Slot slot has_clip sorgulamaya
+            gerek kalmaz.
+            """
+            track = self.song.tracks[int(params[0])]
+            out = []
+            for i, slot in enumerate(track.clip_slots):
+                if slot.has_clip:
+                    out += [i, slot.clip.name, slot.clip.length]
+            return (params[0],) + tuple(out)
+
+        add("/live/track/get/clip_slots", track_get_clip_slots)

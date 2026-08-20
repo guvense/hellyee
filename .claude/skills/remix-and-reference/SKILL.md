@@ -58,8 +58,9 @@ beat", "halftime flip of the drop"). The pipeline:
      prefer tempo-matching the project instead. Never toggle warp on→off
      (region clamp — see the hellyee skill).
 5. **Key**: new musical material follows the stem's key (`get_scale_notes`),
-   or transpose the stem ±(≤3) semitones via `/live/clip/set/pitch_coarse` —
-   more sounds artifacted. An autotune plugin locked to the target scale
+   or transpose the stem ±(≤3) semitones with
+   `set_audio_clip(pitch_coarse=…)` — more sounds artifacted. The same tool's
+   `gain` sits a stem into the mix without re-exporting it. An autotune plugin locked to the target scale
    (MAutoPitch, per-note switches) covers vocal drift.
 6. **Rebuild** with the genre-blueprints skill for the target style, treat
    imported stems as first-class layers: EQ them into their slot (high-pass
@@ -76,7 +77,9 @@ beat", "halftime flip of the drop"). The pipeline:
 
 - Stem separation is good, not perfect — bleed is normal, worst on busy
   mixes. Vocals separate best; say so when quality matters.
-- No audio export API: the user renders; you verify by meters before render.
+- Export is real-time only: `render_arrangement` resamples the master in real
+  time (5-minute track = 5 minutes). Verify by section with `record_master`
+  first, render once at the end.
 - Time-stretching quality and warp-marker placement are not controllable via
   the API — tempo-matching the project to the source avoids the whole
   problem class.

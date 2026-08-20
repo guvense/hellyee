@@ -49,22 +49,23 @@ Claude →  plays the drop · reads every track's meter · adjusts faders ·
 | **Audio in** | Turn a hummed melody into MIDI, or a spoken command into text. |
 | **Remix & reference** | Analyze any song (key, tempo, band energies), separate its stems with demucs, and import audio onto tracks — reference channels and full remix flows. |
 
-58 tools in total. [Full reference below.](#tools)
+74 tools in total. [Full reference below.](#tools)
 
 ## The skills
 
-The tools are half the story. `hellyee setup` also installs seven skills —
+The tools are half the story. `hellyee setup` also installs eight skills —
 production knowledge Claude loads when the task calls for it:
 
 | Skill | What it teaches |
 |---|---|
-| **hellyee** | How to drive the tools: ordering rules, the percent convention, mixing by measurement, and the Live behaviours that fail silently with no error. |
+| **hellyee** | How to drive the tools: ordering rules, unit-aware parameter setting, mixing by measurement, and the eight Live behaviours that fail silently with no error. |
 | **genre-blueprints** | Per-genre conventions with real numbers — tempo, drum grids, bassline patterns, sidechain amounts, kick/bass frequency separation, section lengths — for techno, house, trance, melodic techno, dnb, trap and ambient. |
 | **emotion-to-notes** | Turns a mood ("hüzünlü", "euphoric", "tense") into scale, contour, velocity and density decisions, then verifies the written notes actually match the intended emotion. |
 | **melody-craft** | Why generated melodies sound simple (the seven traps) and how to write ones that don't: motif development, tension notes, climax placement, question/answer phrasing — plus a feedback dictionary so "daha duygulu" or "çok yoğun" maps to concrete note edits instead of a regeneration. |
 | **arrangement-transitions** | Risers, gasps, fills and impacts — and which of them each genre actually uses. Carries the measured rule that a drop only hits if the moment before it is smaller. |
 | **mastering-targets** | Loudness per destination (Spotify −14 LUFS, Apple −16, club −6…−9) mapped to Live's meter scale, with section-contrast and kick-survival guardrails. |
 | **remix-and-reference** | Reference-channel workflow (import muted, A/B by solo, level-match before judging) and the remix pipeline: analyze → separate stems → import → rebuild in the target genre. |
+| **sound-check** | Pre-flight verification that every track actually makes sound before an arrangement is built on it — drum pad coverage, one-pass metering, and the decision tree for a track that reads silent. |
 
 Together they are why a one-line request ("make a techno track, master it for
 Spotify") comes out structured like the genre instead of generic MIDI.
@@ -185,34 +186,36 @@ Say what you want. Claude reads the set's state first, then acts.
 **Pitches use Live's display convention: C3 = 60.** Standard MIDI notation calls
 that C4. hellyee follows Live so the note Claude writes matches the note you see.
 
-**Device parameters are set by percent, not by unit.** Live's raw values live on
-internal scales that are not what the UI shows — Auto Filter's `Frequency` runs
-`20–135` but reads as "265 Hz". Set parameters with `percent` (0–100 across the
-parameter's own range); the tool reports back the displayed value so you can
-confirm what actually happened.
+**Device parameters are set in the unit you mean, never raw.** Live's raw values
+live on internal scales that are not what the UI shows — Auto Filter's
+`Frequency` runs `20–135` but reads as "265 Hz". So `set_device_parameter` takes
+`hz=250` (solved against the device's own readout, correct on every device),
+`display="1/4"` for named settings, or `percent=` for unitless controls like
+Amount and Drive. It reports back the displayed value so you can confirm what
+actually happened.
 
 ---
 
 ## Tools
 
 <details>
-<summary><b>All 58 tools</b></summary>
+<summary><b>All 74 tools</b></summary>
 
 | Group | Tools |
 |---|---|
 | Connection | `check_connection` |
-| Song | `get_song_status` · `set_tempo` · `transport` · `create_scene` · `fire_scene` |
+| Song | `get_song_status` · `set_tempo` · `transport` · `set_playhead` · `set_loop` · `back_to_arranger` · `create_scene` · `fire_scene` |
 | Tracks | `create_track` · `rename_track` · `delete_track` · `duplicate_track` · `set_mixer` |
-| Clips | `create_clip` · `delete_clip` · `fire_clip` · `stop_clip` · `set_clip_properties` |
+| Clips | `create_clip` · `delete_clip` · `fire_clip` · `stop_clip` · `set_clip_properties` · `set_audio_clip` · `list_session_clips` |
 | Notes | `get_clip_notes` · `add_notes` · `replace_clip_notes` · `clear_clip_notes` · `quantize_clip` · `apply_groove` |
-| Theory | `get_scale_notes` · `get_chord_notes` · `snap_notes_to_scale` · `get_drum_map` |
-| Devices | `list_track_devices` · `list_device_parameters` · `set_device_parameter` · `delete_device` |
+| Theory | `get_scale_notes` · `get_chord_notes` · `snap_notes_to_scale` · `get_drum_map` · `get_drum_pads` |
+| Devices | `list_track_devices` · `list_device_parameters` · `set_device_parameter` · `get_parameter_options` · `delete_device` |
 | Browser | `browser_categories` · `search_browser` · `load_device` · `load_device_by_uri` |
-| Mixing | `measure_track_level` · `get_master_meter` · `record_master` · `compare_audio_files` |
-| Sends | `list_return_tracks` · `get_track_sends` · `set_track_send` · `set_return_volume` |
+| Mixing | `measure_track_level` · `measure_tracks` · `get_master_meter` · `record_master` · `compare_audio_files` |
+| Sends | `list_return_tracks` · `get_track_sends` · `set_track_send` · `set_return_volume` · `list_return_devices` · `list_return_device_parameters` · `set_return_parameter` · `load_return_device` |
 | Master | `list_master_devices` · `list_master_device_parameters` · `set_master_parameter` · `load_master_device` |
-| Arrangement | `place_in_arrangement` · `get_arrangement_clips` · `clear_arrangement_track` · `delete_arrangement_clip` · `show_arrangement_view` |
-| Automation | `automate_clip` · `clear_clip_automation` |
+| Arrangement | `place_in_arrangement` · `get_arrangement_clips` · `refresh_arrangement_track` · `clear_arrangement_track` · `delete_arrangement_clip` · `show_arrangement_view` · `get_arrangement_length` · `render_arrangement` |
+| Automation | `automate_clip` · `automate_arrangement` · `clear_clip_automation` |
 | Audio | `notes_from_audio` · `transcribe_audio` · `analyze_audio_file` · `separate_stems` · `import_audio` |
 
 </details>
