@@ -142,6 +142,79 @@ class FilterReading(unittest.TestCase):
         self.assertIn("Filter 2 Freq", result["warning"])
 
 
+class FilterType(unittest.TestCase):
+    """Tepeyi yalnizca lowpass/bandpass kapatir.
+
+    Gercek olay: Wavetable'in Filter 1'i 1470 Hz'de bir HIGHPASS'ti ve tool
+    onu "lead tabani 4 kHz altinda" diye isaretledi. Tepeyi kesen Filter 2
+    (lowpass) idi. Tip okunmadan taban kiyasi yanlis alarm uretiyor.
+    """
+
+    def _live(self, kind, hz="590 Hz"):
+        live = FakeLive(num_scenes=4)
+        live.add_device(TRACK, 0, [
+            param("Filter 1 Type", kind),
+            param("Filter 1 Freq", hz),
+        ], name="Wavetable")
+        return live
+
+    def test_highpass_below_the_floor_is_not_flagged(self):
+        found = core.device_filters(self._live("Highpass"), TRACK, 0)
+        self.assertEqual(found[0]["type"], "Highpass")
+        self.assertFalse(found[0]["caps_top"])
+        self.assertIsNone(core._cutoff_warning(found))
+
+    def test_lowpass_below_the_floor_is_flagged(self):
+        found = core.device_filters(self._live("Lowpass"), TRACK, 0)
+        self.assertTrue(found[0]["caps_top"])
+        self.assertIsNotNone(core._cutoff_warning(found))
+
+    def test_bandpass_also_caps_the_top(self):
+        found = core.device_filters(self._live("Bandpass"), TRACK, 0)
+        self.assertTrue(found[0]["caps_top"])
+
+    def test_notch_does_not_cap_the_top(self):
+        found = core.device_filters(self._live("Notch"), TRACK, 0)
+        self.assertFalse(found[0]["caps_top"])
+
+    def test_unknown_type_is_assumed_to_cap(self):
+        """Rack makrosunda tip parametresi yok; sessiz kalmaktansa isaretle."""
+        live = FakeLive(num_scenes=4)
+        live.add_device(TRACK, 0, [param("Filter Cutoff", "590 Hz")],
+                        name="Dunkel Pad")
+        found = core.device_filters(live, TRACK, 0)
+        self.assertIsNone(found[0]["type"])
+        self.assertTrue(found[0]["caps_top"])
+        self.assertIsNotNone(core._cutoff_warning(found))
+
+    def test_auto_filter_style_naming_finds_its_type(self):
+        """Auto Filter: 'Frequency' ile 'Filter Type' isim onekini paylasmaz."""
+        live = FakeLive(num_scenes=4)
+        live.add_device(TRACK, 0, [
+            param("Filter Type", "Highpass"),
+            param("Frequency", "590 Hz"),
+        ], name="Auto Filter")
+        found = core.device_filters(live, TRACK, 0)
+        self.assertEqual(found[0]["type"], "Highpass")
+        self.assertFalse(found[0]["caps_top"])
+
+    def test_mixed_chain_warns_only_about_the_lowpass(self):
+        """Gercek LEAD: highpass 1470, lowpass 5880 — ikisi de lead tabani
+        altinda degil, ama highpass hicbir kosulda sayilmamali."""
+        live = FakeLive(num_scenes=4)
+        live.add_device(TRACK, 0, [
+            param("Filter 1 Type", "Highpass"),
+            param("Filter 1 Freq", "1.47 kHz"),
+            param("Filter 2 Type", "Lowpass"),
+            param("Filter 2 Freq", "5.88 kHz"),
+        ], name="Levitate Lead")
+        result = core.track_filters(live, TRACK, role="lead")
+        flagged = {f["name"]: f["below_floor"] for f in result["filters"]}
+        self.assertFalse(flagged["Filter 1 Freq"], "highpass isaretlenmemeli")
+        self.assertFalse(flagged["Filter 2 Freq"], "5.88 kHz taban ustunde")
+        self.assertNotIn("warning", result)
+
+
 class LoadReporting(unittest.TestCase):
     """Uyari YUKLEME aninda cikmali; saatler sonra kesfedilmemeli."""
 

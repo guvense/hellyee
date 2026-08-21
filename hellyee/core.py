@@ -485,6 +485,11 @@ def load_item(osc: AbletonOSC, track_index: int, uri: str) -> dict:
 # --------------------------------------------------------------------------
 _FILTER_PARAM_RE = re.compile(r"freq|cutoff", re.I)
 _EQ_BAND_RE = re.compile(r"^\d+ Frequency [AB]$")   # EQ Eight bantlari: gurultu
+_FILTER_TAIL_RE = re.compile(r"\s*(freq(uency)?|cutoff)\s*$", re.I)
+_TYPE_RE = re.compile(r"\btype\b", re.I)
+# Tepeyi yalnizca lowpass ve bandpass kapatir. Bir highpass'i taban altinda
+# saymak yanlis alarmdir: o tam tersi isi yapiyor.
+_CAPS_TOP_RE = re.compile(r"low\s*-?pass|band\s*-?pass|\blp\b|\bbp\b", re.I)
 
 # hellyee skill'indeki calisan tabanlar.
 ROLE_CUTOFF_FLOOR_HZ = {
@@ -503,23 +508,46 @@ def device_filters(osc: AbletonOSC, track_index: int,
     90+ parametreli bir enstrumanda hepsini tek tek okumak yavas olurdu.
     """
     t, d = int(track_index), int(device_index)
-    names = _after(osc.query("/live/device/get/parameters/name", t, d), 2)
+    names = [str(n) for n in
+             _after(osc.query("/live/device/get/parameters/name", t, d), 2)]
+
+    # Tip parametrelerini onceden indeksle: "Filter 1 Freq" -> "Filter 1 Type".
+    types: dict[str, int] = {}
+    for i, name in enumerate(names):
+        if _TYPE_RE.search(name):
+            types[_TYPE_RE.sub("", name).strip().lower()] = i
+
+    def _kind(name: str) -> str | None:
+        prefix = _FILTER_TAIL_RE.sub("", name).strip().lower()
+        index = types.get(prefix)
+        if index is None:      # Auto Filter: "Frequency" + "Filter Type"
+            index = next((v for k, v in types.items() if "filter" in k), None)
+        if index is None:
+            return None
+        return str(_track_param_io(osc, t, d, index)[0]()).strip()
+
     out = []
     for i, name in enumerate(names):
-        name = str(name)
         if not _FILTER_PARAM_RE.search(name) or _EQ_BAND_RE.match(name):
             continue
         read_string, _ = _track_param_io(osc, t, d, i)
         hz, unit = _parse_display(read_string())
-        if unit == "hz" and hz is not None:
-            out.append({"index": i, "name": name, "hz": round(hz, 1)})
+        if unit != "hz" or hz is None:
+            continue
+        kind = _kind(name)
+        out.append({"index": i, "name": name, "hz": round(hz, 1),
+                    "type": kind,
+                    # Tip okunamazsa lowpass varsay: tek filtreli device'larin
+                    # ve rack makrolarinin ezici cogunlugu oyle.
+                    "caps_top": bool(_CAPS_TOP_RE.search(kind)) if kind else True})
     return out
 
 
 def _cutoff_warning(filters: list[dict], floor: float | None = None) -> str | None:
     """Zincirdeki EN ALCAK filtre kazanir — uyari onun uzerinden kurulur."""
     limit = floor or LOWEST_FLOOR_HZ
-    low = [f for f in filters if f["hz"] < limit]
+    low = [f for f in filters
+           if f["hz"] < limit and f.get("caps_top", True)]
     if not low:
         return None
     worst = min(low, key=lambda f: f["hz"])
@@ -528,8 +556,8 @@ def _cutoff_warning(filters: list[dict], floor: float | None = None) -> str | No
                 f"{floor:g} Hz. Ses temel frekansindan ibaret kalir.")
     return (f"'{worst['name']}' {worst['hz']:g} Hz — her rol icin dusuk "
             f"(en dusuk taban {LOWEST_FLOOR_HZ:g} Hz). Bir presette birden "
-            "fazla filtre olabilir ve EN ALCAK olan kazanir; ustteki bir "
-            "filtreyi acmak bunu duzeltmez.")
+            "fazla filtre olabilir; tepeyi kapatan EN ALCAK lowpass kazanir, "
+            "baska bir filtreyi acmak bunu duzeltmez.")
 
 
 def track_filters(osc: AbletonOSC, track_index: int,
@@ -544,7 +572,8 @@ def track_filters(osc: AbletonOSC, track_index: int,
     for dev in list_devices(osc, t):
         for f in device_filters(osc, t, dev["index"]):
             f = dict(f, device_index=dev["index"], device=dev["name"])
-            f["below_floor"] = floor is not None and f["hz"] < floor
+            f["below_floor"] = (floor is not None and f["hz"] < floor
+                                and f.get("caps_top", True))
             out.append(f)
     res: dict = {"track_index": t, "filters": out}
     if floor:

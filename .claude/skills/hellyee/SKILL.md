@@ -157,13 +157,17 @@ Darker than that is a deliberate effect (a filtered breakdown), not a default.
 When the user says the track sounds muffled, read every filter's Hz value before
 changing anything — the answer is usually right there.
 
-**A preset can have more than one filter, and the LOWEST one wins.** Wavetable
-ships two in series; racks stack more. Opening the first changes nothing while
-the second sits at 600 Hz. Measured on a factory lead: opening Filter 1 from
-605 Hz to 1.47 kHz moved the energy split by 2 points; opening Filter 2 to
-5.9 kHz moved it by 33 and brought the high band from 0.0% to 11.5%. Read
-`list_track_filters(track, role=…)` — it reports every cutoff on the track in Hz
-and flags the ones under the floor. `load_device` reports them at load time too,
+**A preset can have more than one filter, and the lowest LOWPASS wins.** Read
+the type, not just the frequency — Wavetable ships two filters and its first one
+is often a *highpass*. Raising a highpass does not open the sound, it thins it:
+on a real lead, "opening" Filter 1 from 605 Hz to 1.47 kHz cut body and added no
+top, because the thing capping the top was Filter 2. Note also that Wavetable's
+`Filter 1 LP/HP` parameter selects the circuit model (Clean / OSR / MS2 / SMP /
+PRD), *not* the response — the response is `Filter 1 Type`. Measured on that lead: moving Filter 1
+shifted the energy split by 2 points; opening the Filter 2 lowpass to 5.9 kHz
+shifted it by 33 and took the high band from 0.0% to 11.5%. Read
+`list_track_filters(track, role=…)` — it reports every cutoff in Hz with its
+response type and flags only the ones that actually cap the top. `load_device` reports them at load time too,
 so a strangled preset announces itself instead of being found three hours later.
 
 **Make room instead of turning things up.** Everything sharing the low end makes
