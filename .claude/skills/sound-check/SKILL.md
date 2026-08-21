@@ -1,6 +1,6 @@
 ---
 name: sound-check
-description: Pre-flight verification that every track in an Ableton set actually produces sound, before an arrangement is built on top of it — drum pad coverage, per-track metering, and the decision tree for a track that reads silent. Use right after loading instruments and writing the first clips, before placing arrangement clips; and whenever something is missing, thin, inaudible, or a band reads near zero — "hat'ler duyulmuyor", "bir şey eksik", "neden ses gelmiyor", "why is this silent", "the highs are gone".
+description: Pre-flight verification that every track in an Ableton set actually produces sound, before an arrangement is built on top of it — drum pad coverage, per-track metering, and the decision tree for a track that reads silent. Use right after loading instruments and writing the first clips, before placing arrangement clips; and whenever something is missing, thin, inaudible, cheap-sounding, or a band reads near zero — "hat'ler duyulmuyor", "bir şey eksik", "neden ses gelmiyor", "sesler kalitesiz", "bu ses ince/ucuz duruyor", "why is this silent", "the highs are gone", "these sounds are low quality".
 ---
 
 # Sound check
@@ -70,6 +70,34 @@ audible in isolation and invisible in a mix; peak around 0.15–0.25 is where it
 starts to sit. Raise the device chain (an EQ's `Output Gain`) as well as the
 fader, and raise the note velocities — a rack pad quiet at velocity 70 has room
 at 110.
+
+## The sound is there but it is bad
+
+Silence is not the only thing that fails quietly. A preset chosen by its name
+can be filtered shut and still write, place and render without complaint.
+
+**Audition every preset before you keep it.** `audition_instrument(track)` solos
+the track, bypasses the master chain, records a few bars and returns the band
+split, the filter cutoffs and a verdict. It restores solo and master state even
+if it fails. One call replaces solo → bypass → record → analyze → restore, and
+the two restore steps are the ones you forget.
+
+Read the numbers like this:
+
+| reading | means |
+|---|---|
+| one band holds **>85%** of the energy | the patch is filtered shut — read every cutoff |
+| **crest < 3** | almost no dynamics; fine for a pad, wrong for a pluck |
+| **high + air < 1%** on a sustained sound | no harmonics; it will vanish on a laptop speaker |
+| energy spread across three bands, crest 10+ | healthy |
+
+Measured reference points from one real set: a strangled factory lead read
+94.8% in a single band with crest 2.8; after opening its second filter it read
+61.4 / 26.9 / 11.5 with crest 3.6; a healthy stab on the same set read
+9.8 / 61.3 / 26.8 with crest 18.2.
+
+**None of this says the sound is good.** It catches strangled, not boring. Tone
+is the user's call — say the numbers and let them judge.
 
 ## After any session-clip edit
 
