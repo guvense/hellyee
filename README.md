@@ -39,7 +39,7 @@ Claude →  plays the drop · reads every track's meter · adjusts faders ·
 |---|---|
 | **Tracks & clips** | Create MIDI/audio tracks, rename, duplicate, delete. Create clips, fire them, set loop points. |
 | **MIDI** | Write, read, replace and clear notes. Quantize with a `strength` control Live's own dialog doesn't offer. |
-| **Sound design** | Full parameter access to every Live device — 93 parameters on Wavetable, all of EQ Eight, filters, envelopes. |
+| **Sound design** | Full parameter access to every Live device — 93 parameters on Wavetable, all of EQ Eight, filters, envelopes. Presets are auditioned by measurement before they are kept, and a filter shut below the working floor is reported at load time. |
 | **Devices** | Search Live's browser and load any instrument, effect or preset onto any track. |
 | **Mixing** | Read real output meters and balance by measurement, not by guessing. |
 | **Arrangement** | Read an existing song's structure, and place clips on the timeline to build your own. |
@@ -49,7 +49,7 @@ Claude →  plays the drop · reads every track's meter · adjusts faders ·
 | **Audio in** | Turn a hummed melody into MIDI, or a spoken command into text. |
 | **Remix & reference** | Analyze any song (key, tempo, band energies), separate its stems with demucs, and import audio onto tracks — reference channels and full remix flows. |
 
-74 tools in total. [Full reference below.](#tools)
+76 tools in total. [Full reference below.](#tools)
 
 ## The skills
 
@@ -199,7 +199,7 @@ actually happened.
 ## Tools
 
 <details>
-<summary><b>All 74 tools</b></summary>
+<summary><b>All 76 tools</b></summary>
 
 | Group | Tools |
 |---|---|
@@ -209,9 +209,9 @@ actually happened.
 | Clips | `create_clip` · `delete_clip` · `fire_clip` · `stop_clip` · `set_clip_properties` · `set_audio_clip` · `list_session_clips` |
 | Notes | `get_clip_notes` · `add_notes` · `replace_clip_notes` · `clear_clip_notes` · `quantize_clip` · `apply_groove` |
 | Theory | `get_scale_notes` · `get_chord_notes` · `snap_notes_to_scale` · `get_drum_map` · `get_drum_pads` |
-| Devices | `list_track_devices` · `list_device_parameters` · `set_device_parameter` · `get_parameter_options` · `delete_device` |
+| Devices | `list_track_devices` · `list_device_parameters` · `set_device_parameter` · `get_parameter_options` · `list_track_filters` · `delete_device` |
 | Browser | `browser_categories` · `search_browser` · `load_device` · `load_device_by_uri` |
-| Mixing | `measure_track_level` · `measure_tracks` · `get_master_meter` · `record_master` · `compare_audio_files` |
+| Mixing | `measure_track_level` · `measure_tracks` · `get_master_meter` · `record_master` · `audition_instrument` · `compare_audio_files` |
 | Sends | `list_return_tracks` · `get_track_sends` · `set_track_send` · `set_return_volume` · `list_return_devices` · `list_return_device_parameters` · `set_return_parameter` · `load_return_device` |
 | Master | `list_master_devices` · `list_master_device_parameters` · `set_master_parameter` · `load_master_device` |
 | Arrangement | `place_in_arrangement` · `get_arrangement_clips` · `refresh_arrangement_track` · `clear_arrangement_track` · `delete_arrangement_clip` · `show_arrangement_view` · `get_arrangement_length` · `render_arrangement` |

@@ -462,14 +462,146 @@ def load_device(osc: AbletonOSC, track_index: int, category: str,
     """Arar ve ilk eslesmeyi kanalin device zincirinin sonuna yukler."""
     raw = osc.query("/live/browser/load_device", int(track_index), category,
                     query, timeout=15.0)
-    return {"track_index": raw[0], "loaded": raw[1], "uri": raw[2]}
+    return _with_filter_report(osc, track_index,
+                               {"track_index": raw[0], "loaded": raw[1],
+                                "uri": raw[2]})
 
 
 def load_item(osc: AbletonOSC, track_index: int, uri: str) -> dict:
     """URI'si bilinen bir ogeyi yukler (once browser_search ile bul)."""
     raw = osc.query("/live/browser/load_item", int(track_index), uri,
                     timeout=15.0)
-    return {"track_index": raw[0], "loaded": raw[1], "uri": raw[2]}
+    return _with_filter_report(osc, track_index,
+                               {"track_index": raw[0], "loaded": raw[1],
+                                "uri": raw[2]})
+
+
+# --------------------------------------------------------------------------
+# preset denetimi
+#
+# Kapali filtreli bir preset hicbir yerde hata vermez: klip yazilir, yerlesir,
+# render olur. Tek iz, saatler sonra bakilan bir analizde tek banda sikismis
+# enerjidir. Bu yuzden kesim frekanslari yukleme ANINDA raporlanir.
+# --------------------------------------------------------------------------
+_FILTER_PARAM_RE = re.compile(r"freq|cutoff", re.I)
+_EQ_BAND_RE = re.compile(r"^\d+ Frequency [AB]$")   # EQ Eight bantlari: gurultu
+_FILTER_TAIL_RE = re.compile(r"\s*(freq(uency)?|cutoff)\s*$", re.I)
+_TYPE_RE = re.compile(r"\btype\b", re.I)
+# Tepeyi yalnizca lowpass ve bandpass kapatir. Bir highpass'i taban altinda
+# saymak yanlis alarmdir: o tam tersi isi yapiyor.
+_CAPS_TOP_RE = re.compile(r"low\s*-?pass|band\s*-?pass|\blp\b|\bbp\b", re.I)
+
+# hellyee skill'indeki calisan tabanlar.
+ROLE_CUTOFF_FLOOR_HZ = {
+    "bass": 1500.0, "pad": 1500.0,
+    "pluck": 3000.0, "arp": 3000.0, "keys": 3000.0,
+    "lead": 4000.0,
+}
+LOWEST_FLOOR_HZ = min(ROLE_CUTOFF_FLOOR_HZ.values())
+
+
+def device_filters(osc: AbletonOSC, track_index: int,
+                   device_index: int) -> list[dict]:
+    """Device'in Hz okuyan filtre parametrelerini dondurur.
+
+    Adaylari once ISIMDEN secer, yalnizca onlarin value_string'ini sorar;
+    90+ parametreli bir enstrumanda hepsini tek tek okumak yavas olurdu.
+    """
+    t, d = int(track_index), int(device_index)
+    names = [str(n) for n in
+             _after(osc.query("/live/device/get/parameters/name", t, d), 2)]
+
+    # Tip parametrelerini onceden indeksle: "Filter 1 Freq" -> "Filter 1 Type".
+    types: dict[str, int] = {}
+    for i, name in enumerate(names):
+        if _TYPE_RE.search(name):
+            types[_TYPE_RE.sub("", name).strip().lower()] = i
+
+    def _kind(name: str) -> str | None:
+        prefix = _FILTER_TAIL_RE.sub("", name).strip().lower()
+        index = types.get(prefix)
+        if index is None:      # Auto Filter: "Frequency" + "Filter Type"
+            index = next((v for k, v in types.items() if "filter" in k), None)
+        if index is None:
+            return None
+        return str(_track_param_io(osc, t, d, index)[0]()).strip()
+
+    out = []
+    for i, name in enumerate(names):
+        if not _FILTER_PARAM_RE.search(name) or _EQ_BAND_RE.match(name):
+            continue
+        read_string, _ = _track_param_io(osc, t, d, i)
+        hz, unit = _parse_display(read_string())
+        if unit != "hz" or hz is None:
+            continue
+        kind = _kind(name)
+        out.append({"index": i, "name": name, "hz": round(hz, 1),
+                    "type": kind,
+                    # Tip okunamazsa lowpass varsay: tek filtreli device'larin
+                    # ve rack makrolarinin ezici cogunlugu oyle.
+                    "caps_top": bool(_CAPS_TOP_RE.search(kind)) if kind else True})
+    return out
+
+
+def _cutoff_warning(filters: list[dict], floor: float | None = None) -> str | None:
+    """Zincirdeki EN ALCAK filtre kazanir — uyari onun uzerinden kurulur."""
+    limit = floor or LOWEST_FLOOR_HZ
+    low = [f for f in filters
+           if f["hz"] < limit and f.get("caps_top", True)]
+    if not low:
+        return None
+    worst = min(low, key=lambda f: f["hz"])
+    if floor:
+        return (f"'{worst['name']}' {worst['hz']:g} Hz — bu rol icin taban "
+                f"{floor:g} Hz. Ses temel frekansindan ibaret kalir.")
+    return (f"'{worst['name']}' {worst['hz']:g} Hz — her rol icin dusuk "
+            f"(en dusuk taban {LOWEST_FLOOR_HZ:g} Hz). Bir presette birden "
+            "fazla filtre olabilir; tepeyi kapatan EN ALCAK lowpass kazanir, "
+            "baska bir filtreyi acmak bunu duzeltmez.")
+
+
+def track_filters(osc: AbletonOSC, track_index: int,
+                  role: str | None = None) -> dict:
+    """Kanaldaki butun filtre kesimlerini Hz olarak listeler.
+
+    role verilirse (bass/pad/pluck/arp/keys/lead) calisan tabanla kiyaslar.
+    """
+    t = int(track_index)
+    floor = ROLE_CUTOFF_FLOOR_HZ.get(str(role).lower()) if role else None
+    out = []
+    for dev in list_devices(osc, t):
+        for f in device_filters(osc, t, dev["index"]):
+            f = dict(f, device_index=dev["index"], device=dev["name"])
+            f["below_floor"] = (floor is not None and f["hz"] < floor
+                                and f.get("caps_top", True))
+            out.append(f)
+    res: dict = {"track_index": t, "filters": out}
+    if floor:
+        res["role"] = str(role).lower()
+        res["floor_hz"] = floor
+    warning = _cutoff_warning(out, floor)
+    if warning:
+        res["warning"] = warning
+    return res
+
+
+def _with_filter_report(osc: AbletonOSC, track_index: int, info: dict) -> dict:
+    """Yeni yuklenen device'in kesim frekanslarini yukleme raporuna ekler."""
+    if int(track_index) < 0:        # master / return: browser kanal kodlamasi
+        return info
+    try:
+        devices = list_devices(osc, int(track_index))
+        if not devices:
+            return info
+        filters = device_filters(osc, int(track_index), devices[-1]["index"])
+    except (AbletonOSCError, IndexError, ValueError):
+        return info                 # rapor bir kolaylik; yuklemeyi bozmasin
+    if filters:
+        info["filters"] = filters
+        warning = _cutoff_warning(filters)
+        if warning:
+            info["warning"] = warning
+    return info
 
 
 # --------------------------------------------------------------------------
@@ -797,6 +929,102 @@ def record_master(osc: AbletonOSC, start_bar: float, bars: float = 8,
     length = float(osc.query("/live/clip/get/length", int(rec), 0)[2])
     return {"file": str(path), "track_index": int(rec),
             "length_beats": round(length, 1), "start_bar": float(start_bar)}
+
+
+def audition_verdict(analysis: dict) -> list[str]:
+    """analyze_file ciktisini presetin SAGLIGI acisindan okur. Saf fonksiyon.
+
+    Esikler bu projede olculdu: bogulmus bir lead enerjisinin %94.8'ini tek
+    bantta tutuyor ve crest'i 2.8; ayni sette saglikli bir stab uc banda
+    yayiliyor ve crest'i 18.2.
+
+    Bunlar "bu ses guzel mi" demez — "bu patch fiziksel olarak sakat mi" der.
+    """
+    notes: list[str] = []
+    bands = analysis.get("band_energy_pct") or {}
+    if bands:
+        name, pct = max(bands.items(), key=lambda kv: kv[1])
+        if float(pct) > 85.0:
+            notes.append(
+                f"Enerjinin %{pct:g}'i tek bantta ({name}) — patch filtreyle "
+                "bogulmus. Zincirdeki HER filtrenin Hz degerini oku; en alcak "
+                "olan kazanir.")
+    # Crest zayif bir ayirt edici: bu sette bogulmus lead 2.8, duzeltilmis
+    # hali 3.6, saglikli stab 18.2 verdi. Esik ona gore 3.0, ve surekli
+    # materyalde dusuk crest'in normal oldugu soyleniyor.
+    crest = analysis.get("crest_ratio")
+    if crest is not None and float(crest) < 3.0:
+        notes.append(
+            f"Crest {crest} — neredeyse hic dinamik yok. Pad/sustained bir "
+            "seste normal olabilir, ama plucky olmasi gerekiyorsa zarfa bak.")
+    top = (float(bands.get("high_2500_8000", 0.0) or 0.0)
+           + float(bands.get("air_>8000", 0.0) or 0.0))
+    if bands and top < 1.0:
+        notes.append(
+            "2.5 kHz ustu bos — harmonik yok, ses temel frekansindan ibaret. "
+            "Laptop hoparloru ve telefonda tamamen kaybolur.")
+    return notes
+
+
+def audition_instrument(osc: AbletonOSC, track_index: int, bars: float = 4,
+                        bypass_master: bool = True,
+                        start_bar: float | None = None) -> dict:
+    """Kanali sololayip master ciktisini kaydeder — preseti KABUL ETMEDEN once.
+
+    Elle yapinca sekiz adim: solo ac, master'i bypass et, kaydet, analiz et,
+    duzelt, tekrar kaydet, master'i geri ac, solo'yu kapat. Son iki adim
+    unutulursa set bozuk kalir. Burada solo ve master durumu `finally` ile
+    her kosulda — hata alsa bile — geri alinir.
+
+    bypass_master: master zinciri (EQ/glue/limiter) presetin karakterini
+        gizler; auditionda varsayilan olarak devre disi birakilir.
+    start_bar: verilmezse kanalin ILK arrangement klibinin bari kullanilir.
+    """
+    t = int(track_index)
+    if start_bar is None:
+        placed = arrangement_clips(osc, t)
+        if not placed:
+            raise ValueError(
+                f"Kanal {t} aranjmanda calmiyor; start_bar ver ya da once "
+                "klip yerlestir.")
+        start_bar = placed[0]["start_bar"]
+
+    saved_solo: bool | None = None
+    saved_master: list[tuple[int, float]] = []
+    try:
+        try:
+            # Stock AbletonOSC'de bu getter var ama garanti degil; yoksa
+            # 1 sn'de dusup solo'yu kapali varsayar (guvenli taraf).
+            saved_solo = bool(osc.query("/live/track/get/solo", t,
+                                        timeout=1.0)[1])
+        except (AbletonOSCError, IndexError):
+            saved_solo = False
+        osc.send("/live/track/set/solo", t, 1)
+
+        if bypass_master:
+            for dev in master_devices(osc):
+                d = int(dev["index"])
+                on = float(_after(osc.query(
+                    "/live/master/get/device/parameters/value", d), 1)[0])
+                saved_master.append((d, on))
+                osc.send("/live/master/set/device/parameter/value", d, 0, 0.0)
+
+        # record_master bir sonraki bar sinirinda basliyor: bir bar erken gir.
+        info = record_master(osc, max(0.0, float(start_bar) - 1.0),
+                             float(bars) + 1.0)
+    finally:
+        for d, on in saved_master:
+            osc.send("/live/master/set/device/parameter/value", d, 0, on)
+        if saved_solo is not None:
+            osc.send("/live/track/set/solo", t, 1 if saved_solo else 0)
+
+    info["auditioned_track"] = t
+    info["master_bypassed"] = bool(bypass_master)
+    try:
+        info["filters"] = track_filters(osc, t)["filters"]
+    except AbletonOSCError:
+        pass
+    return info
 
 
 def apply_groove(osc: AbletonOSC, track_index: int, clip_index: int,

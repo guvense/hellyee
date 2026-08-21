@@ -49,6 +49,8 @@ class FakeLive:
         self.slots: dict[int, dict[int, SessionClip]] = {}
         self.arrangement: dict[int, list[ArrangementClip]] = {}
         self.params: dict[tuple[int, int], list[dict]] = {}
+        self.devices: dict[int, dict[int, str]] = {}
+        self.pending_preset: list[dict] = []
         self.calls: list[tuple] = []
         self._last_error: str | None = None
 
@@ -66,8 +68,10 @@ class FakeLive:
             ArrangementClip(clip.name, start_beats, clip.length, clip.snapshot()))
         self.arrangement[track].sort(key=lambda c: c.start)
 
-    def add_device(self, track, device, params: list[dict]):
+    def add_device(self, track, device, params: list[dict], name="Device"):
         self.params[(track, device)] = params
+        chain = self.devices.setdefault(track, {})
+        chain[device] = name
 
     # --- yardimcilar -----------------------------------------------------
     def arrangement_clips(self, track) -> list[ArrangementClip]:
@@ -121,6 +125,26 @@ class FakeLive:
                    "min": "min", "max": "max"}[field]
             params = self._params(t, args[1])
             return (args[0], args[1]) + tuple(p[key] for p in params)
+
+        if address in ("/live/track/get/devices/name",
+                       "/live/track/get/devices/class_name"):
+            chain = self.devices.get(t, {})
+            key = "name" if address.endswith("/name") else "class_name"
+            out = [chain[i] if key == "name" else "FakeDevice"
+                   for i in sorted(chain)]
+            return (args[0],) + tuple(out)
+
+        if address == "/live/device/get/parameter/value_string":
+            param = self._params(t, args[1])[int(args[2])]
+            return (args[0], args[1], args[2], param.get("display", ""))
+
+        if address == "/live/browser/load_device":
+            # Yeni device zincirin SONUNA gelir.
+            chain = self.devices.setdefault(t, {})
+            index = (max(chain) + 1) if chain else 0
+            chain[index] = str(args[2])
+            self.params[(t, index)] = list(self.pending_preset)
+            return (args[0], str(args[2]), "uri:fake")
 
         if address == "/live/track/get/clip_slots":
             out = []

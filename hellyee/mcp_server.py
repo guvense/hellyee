@@ -695,6 +695,54 @@ def record_master(start_bar: float, bars: float = 8, analyze: bool = True) -> st
 
 
 @server.tool()
+def list_track_filters(track_index: int, role: str = "") -> str:
+    """Kanaldaki BUTUN filtre kesimlerini Hz olarak listeler.
+
+    Bir ses boguksa once buna bak. Bir presette birden fazla filtre olabilir
+    ve seri baglandiklari icin EN ALCAK olan kazanir — ustteki bir filtreyi
+    acmak sesi acmaz.
+
+    Args:
+        track_index: Kanal indeksi.
+        role: bass / pad / pluck / arp / keys / lead. Verilirse o rolun
+            calisan tabaniyla kiyaslar ve altta kalanlari isaretler.
+    """
+    return _json(core.track_filters(osc(), track_index, role or None))
+
+
+@server.tool()
+def audition_instrument(track_index: int, bars: float = 4,
+                        bypass_master: bool = True,
+                        start_bar: float | None = None,
+                        analyze: bool = True) -> str:
+    """Bir preseti KABUL ETMEDEN once sololayip kaydeder ve analiz eder.
+
+    Preset ismine bakarak secmek tahmindir. Bu, tahmini olcume cevirir:
+    kanali sololar, master zincirini bypass eder (yoksa EQ/limiter presetin
+    karakterini gizler), kaydeder, bant dagilimini ve filtre kesimlerini
+    dondurur. Solo ve master durumu hata halinde bile geri alinir.
+
+    Donen "verdict" listesi patch'in SAGLIGINI soyler, guzel olup olmadigini
+    degil: tek banda sikismis enerji, hic dinamik olmamasi, 2.5 kHz ustunun
+    bos olmasi.
+
+    Args:
+        track_index: Denenecek kanal.
+        bars: Kac bar kaydedilsin.
+        bypass_master: Master zincirini gecici devre disi birak.
+        start_bar: Verilmezse kanalin ilk arrangement klibinin bari.
+        analyze: Bant dagilimi ve verdict hesaplansin mi.
+    """
+    info = core.audition_instrument(osc(), track_index, bars, bypass_master,
+                                    start_bar)
+    if analyze:
+        from .audio import analyze_file
+        info["analysis"] = analyze_file(info["file"])
+        info["verdict"] = core.audition_verdict(info["analysis"])
+    return _json(info)
+
+
+@server.tool()
 def compare_audio_files(mix_path: str, ref_path: str) -> str:
     """Mix'i referans parcayla bant bant kiyaslar; sonuc dogal olarak
     seviye-esitlenmistir (bant paylari yuzde).
